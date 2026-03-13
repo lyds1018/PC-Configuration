@@ -9,4 +9,7 @@ dependencies = [
     "pandas>=2.3.3",
     "django>=5.0",
     "psycopg[binary]>=3.3.3",
+    "requests>=2.32.3",
+    "beautifulsoup4>=4.12.3",
+    "lxml>=5.2.2",
 ]

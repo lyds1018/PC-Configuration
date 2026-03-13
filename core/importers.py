@@ -31,6 +31,35 @@ def _to_value(value):
     return value
 
 
+def _derive_memory_specs(row_dict: Dict[str, object]) -> None:
+    speed = row_dict.get('speed')
+    if not speed:
+        return
+
+    text = str(speed).upper().replace('DDR', '').strip()
+    # Handle formats like "5,6000" (DDR5-6000)
+    if ',' in text:
+        parts = [p.strip() for p in text.split(',') if p.strip()]
+        if parts and parts[0].isdigit():
+            gen = int(parts[0])
+            if gen in (3, 4, 5):
+                row_dict.setdefault('memory_type', f'DDR{gen}')
+        if len(parts) >= 2 and parts[1].isdigit():
+            row_dict.setdefault('memory_speed_mhz', int(parts[1]))
+        return
+
+    # Handle plain numeric speeds like 3200 / 5600
+    if text.isdigit():
+        mhz = int(text)
+        row_dict.setdefault('memory_speed_mhz', mhz)
+        if mhz >= 4800:
+            row_dict.setdefault('memory_type', 'DDR5')
+        elif mhz >= 2133:
+            row_dict.setdefault('memory_type', 'DDR4')
+        else:
+            row_dict.setdefault('memory_type', 'DDR3')
+
+
 def import_csvs(csv_dir: Path = CSV_DIR) -> Dict[str, int]:
     results: Dict[str, int] = {}
     for csv_path in csv_dir.glob('*.csv'):
@@ -46,6 +75,8 @@ def import_csvs(csv_dir: Path = CSV_DIR) -> Dict[str, int]:
                 if not name:
                     continue
                 price = row_dict.pop('price', None)
+                if category == 'memory':
+                    _derive_memory_specs(row_dict)
                 brand = name.split(' ')[0] if name else ''
                 component, _ = Component.objects.get_or_create(
                     category=category,
