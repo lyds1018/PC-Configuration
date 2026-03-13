@@ -1,0 +1,25 @@
+{% extends "core/base.html" %}
+
+{% block title %}首页 - PC 兼容装机{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <h1>PC 配件兼容平台（原型）</h1>
+    <p class="muted">支持 CSV 数据导入、兼容性检测与配置选择。</p>
+    <div class="grid grid-2">
+        <div>
+            <h3>开始装机</h3>
+            <p>进入配置器，选择配件并查看兼容提示。</p>
+            <a class="btn" href="/builder/">进入配置器</a>
+        </div>
+        <div>
+            <h3>可选配件类别</h3>
+            {% for category in categories %}
+                <div class="pill">{{ category }}</div>
+            {% empty %}
+                <p class="muted">数据库暂无配件，请先导入 CSV。</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
