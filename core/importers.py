@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Iterable
+from typing import Dict
 
 import pandas as pd
 from django.db import transaction
@@ -9,6 +9,16 @@ from .models import Component
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 CSV_DIR = BASE_DIR / 'data' / 'csv'
+CORE_CATEGORIES = {
+    'cpu',
+    'motherboard',
+    'memory',
+    'video-card',
+    'internal-hard-drive',
+    'power-supply',
+    'case',
+    'cpu-cooler',
+}
 
 
 def _to_value(value):
@@ -25,6 +35,8 @@ def import_csvs(csv_dir: Path = CSV_DIR) -> Dict[str, int]:
     results: Dict[str, int] = {}
     for csv_path in csv_dir.glob('*.csv'):
         category = csv_path.stem
+        if category not in CORE_CATEGORIES:
+            continue
         df = pd.read_csv(csv_path)
         count = 0
         with transaction.atomic():

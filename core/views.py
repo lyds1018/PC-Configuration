@@ -9,6 +9,16 @@ from .models import Component
 
 
 BUILD_SESSION_KEY = 'build_selection'
+CORE_CATEGORIES = [
+    'cpu',
+    'motherboard',
+    'memory',
+    'video-card',
+    'internal-hard-drive',
+    'power-supply',
+    'case',
+    'cpu-cooler',
+]
 
 
 def _get_selected_map(request):
@@ -32,12 +42,17 @@ def _remove_selected(request, category: str):
         request.session[BUILD_SESSION_KEY] = selected_ids
 
 
-def home(request):
-    categories = (
-        Component.objects.values_list('category', flat=True)
+def _available_categories():
+    existing = set(
+        Component.objects.filter(category__in=CORE_CATEGORIES)
+        .values_list('category', flat=True)
         .distinct()
-        .order_by('category')
     )
+    return [category for category in CORE_CATEGORIES if category in existing]
+
+
+def home(request):
+    categories = _available_categories()
     return render(request, 'core/home.html', {'categories': categories})
 
 
@@ -46,11 +61,7 @@ def builder_home(request):
     selected = _get_selected_map(request)
     issues = check_compatibility(selected)
     total_price = sum((c.price_or_zero for c in selected.values()))
-    categories = (
-        Component.objects.values_list('category', flat=True)
-        .distinct()
-        .order_by('category')
-    )
+    categories = _available_categories()
     return render(
         request,
         'core/builder.html',
@@ -65,6 +76,9 @@ def builder_home(request):
 
 @login_required
 def category_list(request, category: str):
+    if category not in CORE_CATEGORIES:
+        return redirect('builder')
+
     query = request.GET.get('q', '').strip()
     min_price = request.GET.get('min_price', '').strip()
     max_price = request.GET.get('max_price', '').strip()
