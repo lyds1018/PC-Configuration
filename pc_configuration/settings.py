@@ -1,8 +1,12 @@
+import sys
+import secrets
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+APPS_DIR = BASE_DIR / "pc_configuration" / "apps"
+sys.path.insert(0, str(APPS_DIR))
 
-SECRET_KEY = "dev-secret-key-change-me"
+SECRET_KEY = secrets.token_urlsafe(50)
 
 DEBUG = True
 
@@ -15,6 +19,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "accounts",
+    "pc_builder",
 ]
 
 MIDDLEWARE = [
@@ -27,7 +33,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "host.urls"
+ROOT_URLCONF = "pc_configuration.urls"
 
 TEMPLATES = [
     {
@@ -45,12 +51,12 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "host.wsgi.application"
+WSGI_APPLICATION = "pc_configuration.wsgi.application"
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "host_db",
+        "NAME": "pc_db",
         "USER": "root",
         "PASSWORD": "041018",
         "HOST": "127.0.0.1",
@@ -78,7 +84,10 @@ TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

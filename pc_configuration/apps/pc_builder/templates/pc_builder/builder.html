@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <title>整机配置</title>
+  </head>
+  <body>
+    <h1>选择配件</h1>
+    <form method="post">
+      {% csrf_token %}
+
+      <p>
+        <label>CPU：</label>
+        <select name="cpu_id">
+          {% for item in parts.cpus %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <label>主板：</label>
+        <select name="mb_id">
+          {% for item in parts.mbs %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <label>内存：</label>
+        <select name="ram_id">
+          {% for item in parts.rams %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <label>显卡：</label>
+        <select name="gpu_id">
+          {% for item in parts.gpus %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <label>电源：</label>
+        <select name="psu_id">
+          {% for item in parts.psus %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <label>机箱：</label>
+        <select name="case_id">
+          {% for item in parts.cases %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <label>散热器：</label>
+        <select name="cooler_id">
+          {% for item in parts.coolers %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <label>存储：</label>
+        <select name="storage_id">
+          {% for item in parts.storages %}
+            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <button type="submit">生成配置</button>
+    </form>
+
+    {% if selected %}
+      <h2>已选配置</h2>
+      <ul>
+        {% if selected.cpu_id %}<li>CPU：{{ selected.cpu_id.name }}</li>{% endif %}
+        {% if selected.mb_id %}<li>主板：{{ selected.mb_id.name }}</li>{% endif %}
+        {% if selected.ram_id %}<li>内存：{{ selected.ram_id.name }}</li>{% endif %}
+        {% if selected.gpu_id %}<li>显卡：{{ selected.gpu_id.name }}</li>{% endif %}
+        {% if selected.psu_id %}<li>电源：{{ selected.psu_id.name }}</li>{% endif %}
+        {% if selected.case_id %}<li>机箱：{{ selected.case_id.name }}</li>{% endif %}
+        {% if selected.cooler_id %}<li>散热器：{{ selected.cooler_id.name }}</li>{% endif %}
+        {% if selected.storage_id %}<li>存储：{{ selected.storage_id.name }}</li>{% endif %}
+      </ul>
+      <p>总价：￥{{ total_price|floatformat:1 }}</p>
+    {% endif %}
+  </body>
+</html>

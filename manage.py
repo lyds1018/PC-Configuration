@@ -1,9 +1,14 @@
 import os
 import sys
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+APPS_DIR = BASE_DIR / "pc_configuration" / "apps"
+sys.path.insert(0, str(APPS_DIR))
 
 
 def main():
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'host.settings')
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pc_configuration.settings")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -15,5 +20,5 @@ def main():
     execute_from_command_line(sys.argv)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
