@@ -1,102 +1,242 @@
+{% load pc_builder_extras %}
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8">
     <title>整机配置</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --brand: #5b5b85;
+        --text: #1f2330;
+        --muted: #6c7487;
+        --card: #ffffff;
+        --accent: #2c7be5;
+        --accent-dark: #2367bc;
+        --line: #e4e7ef;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        background: var(--brand);
+        color: #fff;
+        text-align: center;
+        padding: 28px 16px;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 1px;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 28px auto 60px;
+        padding: 0 18px;
+      }
+
+      .notice {
+        color: #fff;
+        border-radius: 8px;
+        padding: 12px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 6px 16px rgba(25, 169, 116, 0.15);
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+
+      .notice.ok {
+        background: #19a974;
+      }
+
+      .notice.warn {
+        background: #e36b2c;
+        box-shadow: 0 6px 16px rgba(227, 107, 44, 0.2);
+      }
+
+      .notice.pending {
+        background: #607093;
+        box-shadow: 0 6px 16px rgba(96, 112, 147, 0.2);
+      }
+
+      .notice span {
+        font-weight: 600;
+      }
+
+      .table-card {
+        background: var(--card);
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(21, 32, 56, 0.08);
+        overflow: hidden;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      thead {
+        background: #f1f3f8;
+        color: var(--muted);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+      }
+
+      th,
+      td {
+        padding: 14px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+      }
+
+      tbody tr:hover {
+        background: #f8f9fc;
+      }
+
+      .component {
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .choose-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--accent);
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: 0.2s ease;
+      }
+
+      .choose-btn:hover {
+        background: var(--accent-dark);
+      }
+
+      .plus {
+        display: inline-flex;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.25);
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+      }
+
+      .selected-name {
+        display: inline-block;
+        margin-left: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .total {
+        margin-top: 16px;
+        text-align: right;
+        color: var(--text);
+        font-weight: 700;
+      }
+      .issues {
+        margin: 12px 0 0;
+        padding: 12px 16px;
+        background: #fff4ee;
+        border-left: 4px solid #e36b2c;
+        border-radius: 6px;
+        color: #8a3a12;
+        font-size: 13px;
+      }
+
+      .issues li {
+        margin: 4px 0;
+      }
+    </style>
   </head>
   <body>
-    <h1>选择配件</h1>
-    <form method="post">
-      {% csrf_token %}
+    <header>选择你的配件</header>
+    <div class="container">
+      {% if can_check %}
+        <div class="notice {% if compatibility.ok %}ok{% else %}warn{% endif %}">
+          {% if compatibility.ok %}
+            <div><span>兼容性</span>：当前未检测到不兼容项。</div>
+          {% else %}
+            <div><span>兼容性</span>：发现 {{ compatibility.issues|length }} 项问题。</div>
+          {% endif %}
+          <div>
+            预计功耗：
+            {% if estimated_wattage %}
+              {{ estimated_wattage|floatformat:1 }}W
+            {% else %}
+              0W
+            {% endif %}
+          </div>
+        </div>
+        {% if not compatibility.ok %}
+          <ul class="issues">
+            {% for issue in compatibility.issues %}
+              <li>{{ issue }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% else %}
+        <div class="notice pending">
+          <div><span>兼容性</span>：请先完成核心配件选择后再检测。</div>
+          <div>预计功耗：0W</div>
+        </div>
+      {% endif %}
 
-      <p>
-        <label>CPU：</label>
-        <select name="cpu_id">
-          {% for item in parts.cpus %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <label>主板：</label>
-        <select name="mb_id">
-          {% for item in parts.mbs %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <label>内存：</label>
-        <select name="ram_id">
-          {% for item in parts.rams %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <label>显卡：</label>
-        <select name="gpu_id">
-          {% for item in parts.gpus %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <label>电源：</label>
-        <select name="psu_id">
-          {% for item in parts.psus %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <label>机箱：</label>
-        <select name="case_id">
-          {% for item in parts.cases %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <label>散热器：</label>
-        <select name="cooler_id">
-          {% for item in parts.coolers %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <label>存储：</label>
-        <select name="storage_id">
-          {% for item in parts.storages %}
-            <option value="{{ item.id }}">{{ item.name }} - ￥{{ item.price }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <button type="submit">生成配置</button>
-    </form>
-
-    {% if selected %}
-      <h2>已选配置</h2>
-      <ul>
-        {% if selected.cpu_id %}<li>CPU：{{ selected.cpu_id.name }}</li>{% endif %}
-        {% if selected.mb_id %}<li>主板：{{ selected.mb_id.name }}</li>{% endif %}
-        {% if selected.ram_id %}<li>内存：{{ selected.ram_id.name }}</li>{% endif %}
-        {% if selected.gpu_id %}<li>显卡：{{ selected.gpu_id.name }}</li>{% endif %}
-        {% if selected.psu_id %}<li>电源：{{ selected.psu_id.name }}</li>{% endif %}
-        {% if selected.case_id %}<li>机箱：{{ selected.case_id.name }}</li>{% endif %}
-        {% if selected.cooler_id %}<li>散热器：{{ selected.cooler_id.name }}</li>{% endif %}
-        {% if selected.storage_id %}<li>存储：{{ selected.storage_id.name }}</li>{% endif %}
-      </ul>
-      <p>总价：￥{{ total_price|floatformat:1 }}</p>
-    {% endif %}
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>配件</th>
+              <th>选择</th>
+              <th>价格</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in categories %}
+              <tr>
+                <td class="component">{{ item.label }}</td>
+                <td>
+                  <a class="choose-btn" href="{% url 'part_list' item.key %}">
+                    <span class="plus">+</span>
+                    选择 {{ item.label }}
+                  </a>
+                  {% with chosen=selected|get_item:item.key %}
+                    {% if chosen %}
+                      <span class="selected-name">已选：{{ chosen.name }}</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+                <td>
+                  {% with chosen=selected|get_item:item.key %}
+                    {% if chosen %}
+                      ￥{{ chosen.price }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  {% endwith %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="total">当前总价：￥{{ total_price|floatformat:2 }}</div>
+    </div>
   </body>
 </html>

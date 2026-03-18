@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8">
-    <title>用户登录</title>
+    <title>用户注册</title>
     <style>
       :root {
         --bg: #f6f7fb;
@@ -37,7 +37,7 @@
       }
 
       .container {
-        max-width: 420px;
+        max-width: 460px;
         margin: 40px auto;
         padding: 0 18px;
       }
@@ -68,6 +68,12 @@
         border: 1px solid var(--line);
       }
 
+      .help {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
       button {
         margin-top: 18px;
         width: 100%;
@@ -85,14 +91,14 @@
       }
 
       .error {
-        margin: 12px 0 0;
+        margin: 10px 0 0;
         color: #d64545;
-        font-size: 14px;
+        font-size: 13px;
       }
 
-      .register-link {
+      .back-link {
         display: inline-block;
-        margin-top: 12px;
+        margin-top: 14px;
         color: var(--accent);
         text-decoration: none;
         font-weight: 600;
@@ -100,24 +106,49 @@
     </style>
   </head>
   <body>
-    <header>装机平台登录</header>
+    <header>创建新账号</header>
     <div class="container">
       <div class="card">
-        <h2>请输入账号信息</h2>
+        <h2>填写注册信息</h2>
         <form method="post">
           {% csrf_token %}
+
           <label for="id_username">用户名</label>
-          <input id="id_username" type="text" name="username" required />
+          {{ form.username }}
+          {% if form.username.help_text %}
+            <div class="help">{{ form.username.help_text|striptags }}</div>
+          {% endif %}
+          {% for error in form.username.errors %}
+            <div class="error">{{ error }}</div>
+          {% endfor %}
 
-          <label for="id_password">密码</label>
-          <input id="id_password" type="password" name="password" required />
+          <label for="id_password1">密码</label>
+          {{ form.password1 }}
+          {% if form.password1.help_text %}
+            <div class="help">{{ form.password1.help_text|striptags }}</div>
+          {% endif %}
+          {% for error in form.password1.errors %}
+            <div class="error">{{ error }}</div>
+          {% endfor %}
 
-          <button type="submit">登录</button>
+          <label for="id_password2">确认密码</label>
+          {{ form.password2 }}
+          {% if form.password2.help_text %}
+            <div class="help">{{ form.password2.help_text|striptags }}</div>
+          {% endif %}
+          {% for error in form.password2.errors %}
+            <div class="error">{{ error }}</div>
+          {% endfor %}
+
+          {% if form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+              <div class="error">{{ error }}</div>
+            {% endfor %}
+          {% endif %}
+
+          <button type="submit">注册</button>
         </form>
-        <a class="register-link" href="{% url 'register' %}">没有账号？注册</a>
-        {% if form.errors %}
-          <div class="error">用户名或密码错误，请重试。</div>
-        {% endif %}
+        <a class="back-link" href="{% url 'login' %}">返回登录</a>
       </div>
     </div>
   </body>
