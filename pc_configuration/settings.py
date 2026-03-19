@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts",
     "pc_builder",
+    "recommender",
 ]
 
 MIDDLEWARE = [

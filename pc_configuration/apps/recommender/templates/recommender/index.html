@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <title>整机配置推荐</title>
+    <style>
+      :root {
+        --bg: #f4f5f7;
+        --brand: #2b2f3f;
+        --text: #1f2330;
+        --muted: #6c7487;
+        --card: #ffffff;
+        --accent: #2c7be5;
+        --accent-dark: #2367bc;
+        --line: #e0e3ea;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        background: var(--brand);
+        color: #fff;
+        text-align: center;
+        padding: 22px 16px;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 28px auto 60px;
+        padding: 0 18px;
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(21, 32, 56, 0.08);
+        padding: 20px;
+        border: 1px solid var(--line);
+        margin-bottom: 18px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        align-items: end;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+      }
+
+      button {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: var(--accent-dark);
+      }
+
+      .result-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+
+      .result-card {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px;
+        background: #fff;
+      }
+
+      .result-card h3 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .tag {
+        display: inline-block;
+        background: #e9f2ff;
+        color: #2c7be5;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .item-list {
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+        color: var(--muted);
+      }
+
+      .item-list li {
+        margin: 6px 0;
+      }
+
+      .price {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1c6fb8;
+      }
+
+      .warn {
+        color: #c85518;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    {% include "top_nav.html" %}
+    <header>整机配置推荐</header>
+    <div class="container">
+      <div class="card">
+        <form method="post">
+          {% csrf_token %}
+          <div class="form-grid">
+            <div>
+              <label>预算下限（元）</label>
+              <input type="number" name="budget_min" value="{{ form.budget_min }}" required />
+            </div>
+            <div>
+              <label>预算上限（元）</label>
+              <input type="number" name="budget_max" value="{{ form.budget_max }}" required />
+            </div>
+            <div>
+              <label>用途</label>
+              <select name="usage">
+                <option value="gaming" {% if form.usage == 'gaming' %}selected{% endif %}>游戏</option>
+                <option value="office" {% if form.usage == 'office' %}selected{% endif %}>办公</option>
+                <option value="productivity" {% if form.usage == 'productivity' %}selected{% endif %}>生产力</option>
+              </select>
+            </div>
+            <div>
+              <label>CPU 品牌（必须）</label>
+              <select name="cpu_brand">
+                <option value="any" {% if form.cpu_brand == 'any' %}selected{% endif %}>不限</option>
+                <option value="intel" {% if form.cpu_brand == 'intel' %}selected{% endif %}>Intel</option>
+                <option value="amd" {% if form.cpu_brand == 'amd' %}selected{% endif %}>AMD</option>
+              </select>
+            </div>
+            <div>
+              <label>显卡品牌（必须）</label>
+              <select name="gpu_brand">
+                <option value="any" {% if form.gpu_brand == 'any' %}selected{% endif %}>不限</option>
+                <option value="nvidia" {% if form.gpu_brand == 'nvidia' %}selected{% endif %}>NVIDIA</option>
+                <option value="amd" {% if form.gpu_brand == 'amd' %}selected{% endif %}>AMD</option>
+              </select>
+            </div>
+            <div>
+              <button type="submit">生成推荐</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {% if results %}
+        <div class="result-grid">
+          {% for result in results %}
+            <div class="result-card">
+              <h3>{{ result.profile }}</h3>
+              <div class="price">￥{{ result.total|floatformat:0 }}</div>
+              <div class="tag">预计功耗 {{ result.estimated_watt|floatformat:0 }}W</div>
+              {% if not result.compatibility.ok %}
+                <div class="warn">兼容性提醒：{{ result.compatibility.issues|length }} 项</div>
+              {% endif %}
+              <ul class="item-list">
+                <li>CPU：{{ result.items.cpu.name }}</li>
+                <li>显卡：{{ result.items.gpu.name }}</li>
+                <li>主板：{{ result.items.mb.name }}</li>
+                <li>内存：{{ result.items.ram.name }}</li>
+                <li>存储：{{ result.items.storage.name }}</li>
+                <li>电源：{{ result.items.psu.name }}</li>
+                <li>机箱：{{ result.items.case.name }}</li>
+                <li>散热：{{ result.items.cooler.name }}</li>
+              </ul>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card">请填写预算与用途后生成推荐方案。</div>
+      {% endif %}
+    </div>
+  </body>
+</html>
