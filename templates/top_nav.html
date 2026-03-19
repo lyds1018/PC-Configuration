@@ -1,0 +1,170 @@
+<style>
+  :root {
+    --nav-bg: #1c1f2a;
+    --nav-bg-2: #222638;
+    --nav-text: #f4f6fb;
+    --nav-muted: rgba(255, 255, 255, 0.65);
+    --nav-accent: #f3b340;
+    --drop-bg: #2a2f45;
+    --drop-card: #343a52;
+    --drop-border: rgba(255, 255, 255, 0.08);
+  }
+
+  .topnav {
+    background: linear-gradient(90deg, var(--nav-bg), var(--nav-bg-2));
+    border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .topnav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0 20px 0 44px;
+    display: flex;
+    gap: 0;
+    align-items: center;
+  }
+
+  .topnav li {
+    display: flex;
+    position: relative;
+  }
+
+  .topnav a,
+  .topnav button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    color: var(--nav-text);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 16px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .topnav a:hover,
+  .topnav button:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .topnav .muted {
+    color: var(--nav-muted);
+  }
+
+  .dropdown {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    min-width: 680px;
+    background: var(--drop-bg);
+    border: 1px solid var(--drop-border);
+    padding: 16px;
+    display: none;
+    box-shadow: 0 16px 40px rgba(12, 16, 28, 0.35);
+  }
+
+  .dropdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .dropdown-card {
+    background: var(--drop-card);
+    border: 1px solid var(--drop-border);
+    border-radius: 8px;
+    padding: 14px;
+    color: var(--nav-text);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .dropdown-card:hover {
+    border-color: rgba(243, 179, 64, 0.7);
+  }
+
+  .dropdown-title {
+    display: block;
+    font-size: 12px;
+    color: var(--nav-muted);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  .has-dropdown:hover .dropdown {
+    display: block;
+  }
+
+  .caret {
+    font-size: 12px;
+    color: var(--nav-muted);
+  }
+
+  @media (max-width: 900px) {
+    .dropdown {
+      min-width: 320px;
+    }
+  }
+</style>
+
+<nav class="topnav">
+  <ul>
+    <li>
+      <a href="{% url 'build_pc' %}">DIY主机</a>
+    </li>
+    <li class="has-dropdown">
+      <button type="button" aria-haspopup="true" aria-expanded="false">
+        配件数据
+        <span class="caret">▾</span>
+      </button>
+      <div class="dropdown">
+        <div class="dropdown-grid">
+          <a class="dropdown-card" href="{% url 'part_list' 'cpu' %}">
+            处理器
+            <span class="dropdown-title">CPUs</span>
+          </a>
+          <a class="dropdown-card" href="{% url 'part_list' 'cooler' %}">
+            散热器
+            <span class="dropdown-title">CPU Coolers</span>
+          </a>
+          <a class="dropdown-card" href="{% url 'part_list' 'mb' %}">
+            主板
+            <span class="dropdown-title">Motherboards</span>
+          </a>
+          <a class="dropdown-card" href="{% url 'part_list' 'ram' %}">
+            内存
+            <span class="dropdown-title">Memory</span>
+          </a>
+          <a class="dropdown-card" href="{% url 'part_list' 'storage' %}">
+            存储
+            <span class="dropdown-title">Storage</span>
+          </a>
+          <a class="dropdown-card" href="{% url 'part_list' 'gpu' %}">
+            显卡
+            <span class="dropdown-title">Video Cards</span>
+          </a>
+          <a class="dropdown-card" href="{% url 'part_list' 'psu' %}">
+            电源
+            <span class="dropdown-title">Power Supplies</span>
+          </a>
+          <a class="dropdown-card" href="{% url 'part_list' 'case' %}">
+            机箱
+            <span class="dropdown-title">Cases</span>
+          </a>
+        </div>
+      </div>
+    </li>
+    <li>
+      <a class="muted" href="{% url 'logout' %}">
+        退出
+      </a>
+    </li>
+  </ul>
+</nav>
