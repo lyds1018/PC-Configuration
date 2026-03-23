@@ -92,11 +92,15 @@ def check_power_budget(cpu, gpu, psu, ram=None, ssd=None):
         return issues
     cpu_power = float(cpu_power)
 
-    boost_clock = gpu.get("boost_clock")
-    if not boost_clock:
-        return issues
-    clock_mhz = float(boost_clock)
-    gpu_power = 0.16 * clock_mhz + 50
+    gpu_tdp = gpu.get("tdp")
+    if gpu_tdp:
+        gpu_power = float(gpu_tdp)
+    else:
+        boost_clock = gpu.get("boost_clock")
+        if not boost_clock:
+            return issues
+        clock_mhz = float(boost_clock)
+        gpu_power = 0.16 * clock_mhz + 50
 
     total = cpu_power + gpu_power
 

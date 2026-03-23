@@ -98,6 +98,8 @@ def cpu_score(cpu, usage: str = "gaming") -> float:
 
     # 基础分：核心数 * 2 + 基准频率
     core_count = float(cpu.core_count or 0)
+    threads = float(getattr(cpu, "threads", 0) or 0)
+    l3_cache_mb = float(getattr(cpu, "l3_cache_mb", 0) or 0)
     base_clock = float(cpu.core_clock or 0)
     boost_clock = float(cpu.boost_clock or 0)
     tdp = float(cpu.tdp or 0)
@@ -107,6 +109,10 @@ def cpu_score(cpu, usage: str = "gaming") -> float:
 
     # 基础性能分
     base = core_count * 2.5 + avg_clock * 1.2
+    if threads > 0:
+        base += threads * 0.25
+    if l3_cache_mb > 0:
+        base += min(l3_cache_mb, 96) * 0.08
 
     # 架构加成（简化版，根据微架构名称判断）
     arch_bonus = 1.0
@@ -171,6 +177,7 @@ def gpu_score(gpu, usage: str = "gaming") -> float:
     memory = normalize_gpu_memory(gpu.memory)
     base_clock = float(gpu.core_clock or 0)
     boost_clock = float(gpu.boost_clock or 0)
+    tdp = float(getattr(gpu, "tdp", 0) or 0)
 
     # 基础分：显存 * 60 + 频率
     base = memory * 60 + boost_clock * 0.8
@@ -207,6 +214,12 @@ def gpu_score(gpu, usage: str = "gaming") -> float:
     else:
         score = base
 
+    # 同代产品中，过高功耗会有小幅惩罚
+    if tdp > 300:
+        score *= 0.93
+    elif tdp > 250:
+        score *= 0.96
+
     return score
 
 
@@ -235,17 +248,19 @@ def ram_score(ram) -> float:
     speed = float(numbers[0]) if numbers else 0.0
 
     # 解析容量（从 modules 字段）
-    modules_text = str(ram.modules or "")
-    module_parts = modules_text.split(",")
-    if len(module_parts) >= 2:
-        try:
-            module_count = int(module_parts[0].strip())
-            module_size = float(module_parts[1].strip())
-            total_capacity = module_count * module_size
-        except (ValueError, IndexError):
+    total_capacity = float(getattr(ram, "total_capacity_gb", 0) or 0)
+    if total_capacity <= 0:
+        modules_text = str(ram.modules or "")
+        module_parts = modules_text.split(",")
+        if len(module_parts) >= 2:
+            try:
+                module_count = int(module_parts[0].strip())
+                module_size = float(module_parts[1].strip())
+                total_capacity = module_count * module_size
+            except (ValueError, IndexError):
+                total_capacity = 0.0
+        else:
             total_capacity = 0.0
-    else:
-        total_capacity = 0.0
 
     # CAS 延迟（越低越好）
     cas_latency = float(ram.cas_latency or 0)
@@ -287,6 +302,7 @@ def storage_score(storage) -> float:
     capacity = float(storage.capacity or 0)
     storage_type = str(storage.type or "").upper()
     interface = str(storage.interface or "").upper()
+    storage_class = str(getattr(storage, "storage_class", "") or "").upper()
     ram_price = price(storage.price)
 
     # 类型系数
@@ -295,6 +311,11 @@ def storage_score(storage) -> float:
         type_multiplier = 1.5
     elif "HDD" in storage_type:
         type_multiplier = 0.8
+
+    if "NVME SSD" in storage_class:
+        type_multiplier = max(type_multiplier, 1.6)
+    elif "SATA SSD" in storage_class:
+        type_multiplier = max(type_multiplier, 1.35)
 
     # 接口系数
     interface_bonus = 0.0

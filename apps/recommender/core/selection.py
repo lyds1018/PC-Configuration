@@ -1,39 +1,24 @@
-"""
-配件选择策略模块
-
-提供多种配件选择算法：
-- 预算内最优选择
-- 电源匹配
-- 功耗估算
-"""
+"""配件选择策略模块（清晰版）。"""
 
 from typing import Callable, Optional
-
-from django.db.models import QuerySet
 
 from ..algorithms.scoring import price
 
 
 def select_components_with_budget(
-    queryset: QuerySet,
+    items,
     budget: float,
     score_fn: Callable,
 ) -> Optional[object]:
-    """
-    在预算范围内选择评分最高的配件
-
-    Args:
-        queryset: Django 查询集
-        budget: 预算上限
-        score_fn: 评分函数
-
-    Returns:
-        选中的配件对象
-    """
+    """在预算内选择评分最高的组件；预算内无项返回 None。"""
     best = None
     best_score = -1
 
-    for item in queryset:
+    items = list(items)
+    if not items:
+        return None
+
+    for item in items:
         item_price = price(item.price)
         if item_price <= budget and item_price > 0:
             score = score_fn(item)
@@ -41,38 +26,25 @@ def select_components_with_budget(
                 best = item
                 best_score = score
 
-    # 如果没有合适的，返回最便宜的
     if not best:
-        return queryset.order_by("price").first()
+        return None
 
     return best
 
 
 def select_psu_for_wattage(
-    queryset: QuerySet,
+    items,
     required_wattage: float,
 ) -> Optional[object]:
-    """
-    根据所需瓦数选择合适的电源
+    """选择满足功率需求且价格最低的电源；无满足项返回 None。"""
+    items = list(items)
+    if not items:
+        return None
 
-    Args:
-        queryset: 电源查询集
-        required_wattage: 所需瓦数（已包含冗余）
-
-    Returns:
-        选中的电源对象
-    """
-    if required_wattage <= 0:
-        return queryset.order_by("price").first()
-
-    # 首先尝试找到满足瓦数的最便宜电源
-    candidate = queryset.filter(wattage__gte=required_wattage).order_by("price").first()
-
-    # 如果找不到，返回瓦数最大的
-    if not candidate:
-        candidate = queryset.order_by("-wattage").first()
-
-    return candidate
+    candidates = [x for x in items if float(x.wattage) >= float(required_wattage)]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda x: price(x.price))
 
 
 def estimate_wattage(cpu, gpu) -> float:
@@ -89,9 +61,8 @@ def estimate_wattage(cpu, gpu) -> float:
     # CPU 功耗
     cpu_power = float(cpu.tdp or 0) if cpu else 0
 
-    # GPU 功耗估算（基于 Boost 频率）
-    gpu_clock = float(gpu.boost_clock or 0) if gpu else 0
-    gpu_power = 0.16 * gpu_clock + 50 if gpu_clock else 0
+    # GPU 功耗（数据保证存在）
+    gpu_power = float(gpu.tdp or 0) if gpu else 0
 
     # 其他组件预留 100W
     other_power = 100
