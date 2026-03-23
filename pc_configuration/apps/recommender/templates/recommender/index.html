@@ -162,7 +162,7 @@
               </select>
             </div>
             <div>
-              <label>CPU 品牌（必须）</label>
+              <label>CPU 品牌</label>
               <select name="cpu_brand">
                 <option value="any" {% if form.cpu_brand == 'any' %}selected{% endif %}>不限</option>
                 <option value="intel" {% if form.cpu_brand == 'intel' %}selected{% endif %}>Intel</option>
@@ -170,11 +170,20 @@
               </select>
             </div>
             <div>
-              <label>显卡品牌（必须）</label>
+              <label>显卡品牌</label>
               <select name="gpu_brand">
-                <option value="any" {% if form.gpu_brand == 'any' %}selected{% endif %}>不限</option>
-                <option value="nvidia" {% if form.gpu_brand == 'nvidia' %}selected{% endif %}>NVIDIA</option>
-                <option value="amd" {% if form.gpu_brand == 'amd' %}selected{% endif %}>AMD</option>
+                <option value="any" {% if form.gpu_brand.value == 'any' %}selected{% endif %}>不限</option>
+                <option value="nvidia" {% if form.gpu_brand.value == 'nvidia' %}selected{% endif %}>NVIDIA</option>
+                <option value="amd" {% if form.gpu_brand.value == 'amd' %}selected{% endif %}>AMD</option>
+              </select>
+            </div>
+            <div>
+              <label>配置优先级</label>
+              <select name="priority_mode">
+                <option value="auto" {% if form.priority_mode.value == 'auto' or not form.priority_mode.value %}selected{% endif %}>自动平衡</option>
+                <option value="cpu" {% if form.priority_mode.value == 'cpu' %}selected{% endif %}>CPU 优先</option>
+                <option value="gpu" {% if form.priority_mode.value == 'gpu' %}selected{% endif %}>显卡优先</option>
+                <option value="storage" {% if form.priority_mode.value == 'storage' %}selected{% endif %}>存储优先</option>
               </select>
             </div>
             <div>
@@ -191,19 +200,39 @@
               <h3>{{ result.profile }}</h3>
               <div class="price">￥{{ result.total|floatformat:0 }}</div>
               <div class="tag">预计功耗 {{ result.estimated_watt|floatformat:0 }}W</div>
-              {% if not result.compatibility.ok %}
-                <div class="warn">兼容性提醒：{{ result.compatibility.issues|length }} 项</div>
+                    
+              {% if result.reasons %}
+                <div style="margin: 10px 0; padding: 8px; background: #f0f7ff; border-radius: 6px; font-size: 13px;">
+                  <strong>推荐理由：</strong>
+                  <ul style="margin: 5px 0 0 20px; padding: 0;">
+                    {% for reason in result.reasons %}
+                      <li>{{ reason }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
               {% endif %}
+                    
               <ul class="item-list">
-                <li>CPU：{{ result.items.cpu.name }}</li>
-                <li>显卡：{{ result.items.gpu.name }}</li>
-                <li>主板：{{ result.items.mb.name }}</li>
-                <li>内存：{{ result.items.ram.name }}</li>
-                <li>存储：{{ result.items.storage.name }}</li>
-                <li>电源：{{ result.items.psu.name }}</li>
-                <li>机箱：{{ result.items.case.name }}</li>
-                <li>散热：{{ result.items.cooler.name }}</li>
+                <li><strong>CPU:</strong> {{ result.items.cpu.name }}</li>
+                <li><strong>显卡:</strong> {{ result.items.gpu.name }}</li>
+                <li><strong>主板:</strong> {{ result.items.mb.name }}</li>
+                <li><strong>内存:</strong> {{ result.items.ram.name }}</li>
+                <li><strong>存储:</strong> {{ result.items.storage.name }}</li>
+                <li><strong>电源:</strong> {{ result.items.psu.name }}</li>
+                <li><strong>机箱:</strong> {{ result.items.case.name }}</li>
+                <li><strong>散热:</strong> {{ result.items.cooler.name }}</li>
               </ul>
+                    
+              {% if result.compatibility and not result.compatibility.ok %}
+                <div style="margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 6px; font-size: 12px; color: #856404;">
+                  <strong>兼容性提示：</strong>
+                  <ul style="margin: 5px 0 0 20px; padding: 0;">
+                    {% for issue in result.compatibility.issues %}
+                      <li>{{ issue }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
             </div>
           {% endfor %}
         </div>
