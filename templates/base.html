@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <title>{% block title %}PC 配置推荐系统{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <a href="/" class="navbar-brand">
+                PC 配置推荐系统
+            </a>
+            
+            <ul class="navbar-menu">
+                <li><a href="{% url 'pc_builder:build_pc' %}">DIY装机</a></li>
+                <li><a href="{% url 'recommender:index' %}">智能推荐</a></li>
+            </ul>
+            
+            <div class="navbar-auth">
+                {% if user.is_authenticated %}
+                    <span class="text-muted">欢迎，{{ user.username }}</span>
+                    <a href="{% url 'accounts:logout' %}" class="btn btn-outline">退出</a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="btn btn-outline">登录</a>
+                    <a href="{% url 'accounts:register' %}" class="btn btn-primary">注册</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Content -->
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 PC 配置推荐系统。All rights reserved.</p>
+            <p class="text-muted mt-1">为您打造最佳性价比的电脑配置方案</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="{% static 'js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

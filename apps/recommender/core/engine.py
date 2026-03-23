@@ -33,6 +33,18 @@ from .selection import (
 
 logger = get_logger(__name__)
 
+PROFILE_TARGET_BUDGET = {
+    "value": lambda budget_min, budget_max: budget_min,
+    "balanced": lambda budget_min, budget_max: (budget_min + budget_max) / 2,
+    "performance": lambda budget_min, budget_max: budget_max,
+}
+
+PROFILE_LABELS = {
+    "value": "性价比方案",
+    "balanced": "均衡方案",
+    "performance": "性能方案",
+}
+
 
 def build_recommendation(
     profile: str,
@@ -84,11 +96,7 @@ def build_recommendation(
         return None
 
     # 计算目标预算（根据方案类型）
-    target_budget = {
-        "value": budget_min,
-        "balanced": (budget_min + budget_max) / 2,
-        "performance": budget_max,
-    }[profile]
+    target_budget = PROFILE_TARGET_BUDGET[profile](budget_min, budget_max)
 
     # 获取预算分配权重
     budget_weights = get_budget_weights(profile, priority_mode)
@@ -186,27 +194,24 @@ def build_recommendation(
             return None
 
     # 11. 生成推荐理由
-    reasons = _generate_recommendation_reasons(
-        selection, usage, profile, cpu_score(cpu, usage), gpu_score(gpu, usage)
-    )
+    cpu_sc = cpu_score(cpu, usage)
+    gpu_sc = gpu_score(gpu, usage)
+
+    reasons = _generate_recommendation_reasons(selection, usage, profile, cpu_sc, gpu_sc)
 
     return {
-        "profile": {
-            "value": "性价比方案",
-            "balanced": "均衡方案",
-            "performance": "性能方案",
-        }[profile],
+        "profile": PROFILE_LABELS[profile],
         "total": total,
         "estimated_watt": estimated_watt,
         "compatibility": compatibility,
         "items": selection,
         "scores": {
-            "cpu_score": cpu_score(cpu, usage),
-            "gpu_score": gpu_score(gpu, usage),
+            "cpu_score": cpu_sc,
+            "gpu_score": gpu_sc,
             "cpu_efficiency": efficiency_score(cpu, "cpu"),
             "gpu_efficiency": efficiency_score(gpu, "gpu"),
-            "cpu_value": value_score(cpu, cpu_score(cpu, usage)),
-            "gpu_value": value_score(gpu, gpu_score(gpu, usage)),
+            "cpu_value": value_score(cpu, cpu_sc),
+            "gpu_value": value_score(gpu, gpu_sc),
         },
         "reasons": reasons,
         "budget_weights": budget_weights,
@@ -240,18 +245,15 @@ def _calculate_minimum_costs(ram_qs, storage_qs, mb_qs, case_qs, cooler_qs) -> f
     Returns:
         最低总成本
     """
-    try:
-        costs = [
-            price(ram_qs.order_by("price").first().price),
-            price(storage_qs.order_by("price").first().price),
-            price(mb_qs.order_by("price").first().price),
-            price(case_qs.order_by("price").first().price),
-            price(cooler_qs.order_by("price").first().price),
-        ]
-        return sum(costs)
-    except Exception as e:
-        logger.error(f"Error calculating minimum costs: {e}")
-        return 0.0
+    price_fields = []
+    for queryset in (ram_qs, storage_qs, mb_qs, case_qs, cooler_qs):
+        item = queryset.order_by("price").first()
+        if not item:
+            logger.warning("Empty queryset while calculating minimum component costs")
+            return 0.0
+        price_fields.append(price(item.price))
+
+    return sum(price_fields)
 
 
 def _find_best_cpu_gpu_combo(

@@ -12,6 +12,17 @@ from ..algorithms.scoring import cpu_brand as get_cpu_brand
 from ..algorithms.scoring import gpu_brand as get_gpu_brand
 
 
+def _filter_by_brand(
+    qs: Union[QuerySet, List],
+    brand: str,
+    extractor,
+) -> Union[QuerySet, List]:
+    if brand == "any":
+        return qs
+
+    return [item for item in qs if extractor(item.name) == brand]
+
+
 def filter_cpu_brand(
     qs: Union[QuerySet, List],
     brand: str,
@@ -26,16 +37,7 @@ def filter_cpu_brand(
     Returns:
         过滤后的结果
     """
-    if brand == "any":
-        return qs
-
-    # 如果是 QuerySet，使用 Django ORM
-    if hasattr(qs, "filter"):
-        # 由于品牌在名称中，需要手动过滤
-        return [cpu for cpu in qs if get_cpu_brand(cpu.name) == brand]
-
-    # 如果是列表，直接过滤
-    return [cpu for cpu in qs if get_cpu_brand(cpu.name) == brand]
+    return _filter_by_brand(qs, brand, get_cpu_brand)
 
 
 def filter_gpu_brand(
@@ -52,15 +54,7 @@ def filter_gpu_brand(
     Returns:
         过滤后的结果
     """
-    if brand == "any":
-        return qs
-
-    # 如果是 QuerySet
-    if hasattr(qs, "filter"):
-        return [gpu for gpu in qs if get_gpu_brand(gpu.name) == brand]
-
-    # 如果是列表
-    return [gpu for gpu in qs if get_gpu_brand(gpu.name) == brand]
+    return _filter_by_brand(qs, brand, get_gpu_brand)
 
 
 def filter_by_price_range(

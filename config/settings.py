@@ -1,17 +1,35 @@
-import sys
+"""
+Django settings for PC Configuration project.
+"""
+
 import secrets
+import sys
+import os
 from pathlib import Path
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-APPS_DIR = BASE_DIR / "pc_configuration" / "apps"
-sys.path.insert(0, str(APPS_DIR))
 
+# Add apps directory to Python path
+APPS_DIR = BASE_DIR / "apps"
+if str(APPS_DIR) not in sys.path:
+    sys.path.insert(0, str(APPS_DIR))
+
+# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = secrets.token_urlsafe(50)
 
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,::1,testserver"
+    ).split(",")
+    if host.strip()
+]
 
+# Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -19,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Local apps
     "accounts",
     "pc_builder",
     "recommender",
@@ -34,7 +53,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "pc_configuration.urls"
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
@@ -52,8 +71,9 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "pc_configuration.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
+# Database
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -65,6 +85,7 @@ DATABASES = {
     }
 }
 
+# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -80,18 +101,30 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Internationalization
 LANGUAGE_CODE = "zh-hans"
 TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
 USE_TZ = True
 
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+STATIC_ROOT = BASE_DIR / "staticfiles"  # For production
+
+# Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Authentication
 LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/pc_builder/"
+LOGIN_REDIRECT_URL = "/pc-builder/"
 LOGOUT_REDIRECT_URL = "/"
+
+# Custom user model (if needed in future)
+# AUTH_USER_MODEL = "accounts.User"

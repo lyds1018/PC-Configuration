@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load pc_builder_extras %}
+
+{% block title %}DIY 配置 - PC 配置推荐系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">DIY 主机配置</h1>
+  <p class="page-subtitle">选择您的配件，打造专属电脑</p>
+</div>
+
+<!-- Compatibility Notice -->
+{% if can_check %}
+  <div class="alert alert-{% if compatibility.ok %}success{% else %}warning{% endif %}">
+    <div class="flex-between">
+      <div>
+        {% if compatibility.ok %}
+          <strong>兼容性检查通过</strong>：当前未检测到不兼容项。
+        {% else %}
+          <strong>兼容性警告</strong>：发现 {{ compatibility.issues|length }} 项问题。
+        {% endif %}
+      </div>
+      <div class="badge badge-primary">
+        预计功耗：{% if estimated_wattage %}{{ estimated_wattage|floatformat:1 }}W{% else %}0W{% endif %}
+      </div>
+    </div>
+  </div>
+  
+  {% if not compatibility.ok %}
+    <div class="alert alert-warning">
+      <strong>兼容性问题：</strong>
+      <ul class="mb-0 mt-2">
+        {% for issue in compatibility.issues %}
+          <li>{{ issue }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+{% else %}
+  <div class="alert alert-info">
+    <strong>提示</strong>：请先完成配件选取，然后进行兼容性检查。
+    <div class="mt-2 badge badge-primary">预计功耗：0W</div>
+  </div>
+{% endif %}
+
+<!-- Components Table -->
+<div class="card">
+  <div class="card-header">配件清单</div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>配件类型</th>
+          <th>操作</th>
+          <th>价格</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in categories %}
+          <tr>
+            <td>
+              <strong>{{ item.label }}</strong>
+            </td>
+            <td>
+              <a class="btn btn-primary" href="{% url 'pc_builder:part_list' item.key %}">
+                选择 {{ item.label }}
+              </a>
+              {% with chosen=selected|get_item:item.key %}
+                {% if chosen %}
+                  <span class="text-muted ml-2">已选：{{ chosen.name }}</span>
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td>
+              {% with chosen=selected|get_item:item.key %}
+                {% if chosen %}
+                  <strong class="text-success">￥{{ chosen.price }}</strong>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              {% endwith %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Total Price -->
+<div class="card text-center">
+  <div class="flex-between">
+    <div>
+      <h3 style="margin: 0;">当前总价</h3>
+    </div>
+    <div>
+      <h2 style="margin: 0; color: var(--secondary-color);">￥{{ total_price|floatformat:2 }}</h2>
+    </div>
+  </div>
+</div>
+{% endblock %}

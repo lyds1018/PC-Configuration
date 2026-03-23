@@ -5,6 +5,21 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .compatibility import run_checks
 from .models import Case, Cpu, CpuCooler, Gpu, Mb, Psu, Ram, Storage
 
+SELECTION_SESSION_KEY = "pc_builder_selection"
+
+BUILD_CATEGORIES = [
+    {"key": "cpu", "label": "CPU"},
+    {"key": "cooler", "label": "CPU 散热器"},
+    {"key": "mb", "label": "主板"},
+    {"key": "ram", "label": "内存"},
+    {"key": "storage", "label": "存储"},
+    {"key": "gpu", "label": "显卡"},
+    {"key": "case", "label": "机箱"},
+    {"key": "psu", "label": "电源"},
+]
+
+COMPATIBILITY_REQUIRED_KEYS = ("cpu", "mb", "ram", "case", "psu", "gpu", "storage")
+
 
 PARTS_CONFIG = {
     "cpu": {
@@ -116,37 +131,36 @@ PARTS_CONFIG = {
 }
 
 
-@login_required
-def build_pc(request):
-    categories = [
-        {"key": "cpu", "label": "CPU"},
-        {"key": "cooler", "label": "CPU 散热器"},
-        {"key": "mb", "label": "主板"},
-        {"key": "ram", "label": "内存"},
-        {"key": "storage", "label": "存储"},
-        {"key": "gpu", "label": "显卡"},
-        {"key": "case", "label": "机箱"},
-        {"key": "psu", "label": "电源"},
-    ]
-    selected_ids = request.session.get("pc_builder_selection", {})
+def _default_compatibility():
+    return {"ok": True, "issues": []}
+
+
+def _get_selected_parts(selected_ids):
     selected = {}
     total_price = 0.0
-    estimated_wattage = None
-    for item in categories:
-        key = item["key"]
+
+    for category in BUILD_CATEGORIES:
+        key = category["key"]
         item_id = selected_ids.get(key)
         if not item_id:
             continue
+
         model = PARTS_CONFIG.get(key, {}).get("model")
         if not model:
             continue
+
         try:
             obj = model.objects.get(id=item_id)
         except model.DoesNotExist:
             continue
+
         selected[key] = obj
         total_price += float(getattr(obj, "price", 0) or 0)
 
+    return selected, total_price
+
+
+def _build_compatibility_parts(selected):
     parts = {
         "cpu": {},
         "mb": {},
@@ -157,6 +171,7 @@ def build_pc(request):
         "ssd": {},
         "storage_count": 1,
     }
+
     if selected.get("cpu"):
         parts["cpu"] = {"tdp": selected["cpu"].tdp}
     if selected.get("mb"):
@@ -180,22 +195,33 @@ def build_pc(request):
     if selected.get("storage"):
         parts["ssd"] = {"type": selected["storage"].type}
 
-    can_check = all(
-        selected.get(key)
-        for key in ("cpu", "mb", "ram", "case", "psu", "gpu", "storage")
-    )
-    compatibility = run_checks(parts) if can_check else {"ok": True, "issues": []}
+    return parts
 
-    if selected.get("cpu") and selected.get("gpu"):
-        cpu_power = float(selected["cpu"].tdp or 0)
-        gpu_clock = float(selected["gpu"].boost_clock or 0)
-        estimated_wattage = cpu_power + (0.16 * gpu_clock + 50 if gpu_clock else 0)
+
+def _estimate_wattage(selected):
+    if not selected.get("cpu") or not selected.get("gpu"):
+        return None
+
+    cpu_power = float(selected["cpu"].tdp or 0)
+    gpu_clock = float(selected["gpu"].boost_clock or 0)
+    return cpu_power + (0.16 * gpu_clock + 50 if gpu_clock else 0)
+
+
+@login_required
+def build_pc(request):
+    selected_ids = request.session.get(SELECTION_SESSION_KEY, {})
+    selected, total_price = _get_selected_parts(selected_ids)
+    parts = _build_compatibility_parts(selected)
+
+    can_check = all(selected.get(key) for key in COMPATIBILITY_REQUIRED_KEYS)
+    compatibility = run_checks(parts) if can_check else _default_compatibility()
+    estimated_wattage = _estimate_wattage(selected)
 
     return render(
         request,
         "pc_builder/builder.html",
         {
-            "categories": categories,
+            "categories": BUILD_CATEGORIES,
             "selected": selected,
             "total_price": total_price,
             "compatibility": compatibility,
@@ -209,13 +235,13 @@ def build_pc(request):
 def select_part(request, part_type, pk):
     config = PARTS_CONFIG.get(part_type)
     if not config:
-        return redirect("build_pc")
+        return redirect("pc_builder:build_pc")
     model = config["model"]
     get_object_or_404(model, id=pk)
-    selected = request.session.get("pc_builder_selection", {})
+    selected = request.session.get(SELECTION_SESSION_KEY, {})
     selected[part_type] = pk
-    request.session["pc_builder_selection"] = selected
-    return redirect("build_pc")
+    request.session[SELECTION_SESSION_KEY] = selected
+    return redirect("pc_builder:build_pc")
 
 
 @login_required
@@ -250,7 +276,7 @@ def part_list(request, part_type):
     order_by = f"-{sort}" if direction == "desc" else sort
     queryset = queryset.order_by(order_by)
 
-    selected_ids = request.session.get("pc_builder_selection", {})
+    selected_ids = request.session.get(SELECTION_SESSION_KEY, {})
     context = {
         "title": config["title"],
         "part_type": part_type,
@@ -262,3 +288,4 @@ def part_list(request, part_type):
         "selected_id": selected_ids.get(part_type),
     }
     return render(request, "pc_builder/part_list.html", context)
+
