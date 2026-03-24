@@ -117,10 +117,7 @@
 <nav class="topnav">
   <ul>
     <li>
-      <a href="{% url 'build_pc' %}">DIY主机</a>
-    </li>
-    <li>
-      <a href="{% url 'recommend' %}">推荐方案</a>
+      <a href="{% url 'pc_builder:build_pc' %}">DIY主机</a>
     </li>
     <li class="has-dropdown">
       <button type="button" aria-haspopup="true" aria-expanded="false">
@@ -129,35 +126,35 @@
       </button>
       <div class="dropdown">
         <div class="dropdown-grid">
-          <a class="dropdown-card" href="{% url 'part_list' 'cpu' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'cpu' %}">
             处理器
             <span class="dropdown-title">CPUs</span>
           </a>
-          <a class="dropdown-card" href="{% url 'part_list' 'cooler' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'cooler' %}">
             散热器
             <span class="dropdown-title">CPU Coolers</span>
           </a>
-          <a class="dropdown-card" href="{% url 'part_list' 'mb' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'mb' %}">
             主板
             <span class="dropdown-title">Motherboards</span>
           </a>
-          <a class="dropdown-card" href="{% url 'part_list' 'ram' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'ram' %}">
             内存
             <span class="dropdown-title">Memory</span>
           </a>
-          <a class="dropdown-card" href="{% url 'part_list' 'storage' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'storage' %}">
             存储
             <span class="dropdown-title">Storage</span>
           </a>
-          <a class="dropdown-card" href="{% url 'part_list' 'gpu' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'gpu' %}">
             显卡
             <span class="dropdown-title">Video Cards</span>
           </a>
-          <a class="dropdown-card" href="{% url 'part_list' 'psu' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'psu' %}">
             电源
             <span class="dropdown-title">Power Supplies</span>
           </a>
-          <a class="dropdown-card" href="{% url 'part_list' 'case' %}">
+          <a class="dropdown-card" href="{% url 'pc_builder:part_list' 'case' %}">
             机箱
             <span class="dropdown-title">Cases</span>
           </a>
@@ -165,7 +162,7 @@
       </div>
     </li>
     <li>
-      <a class="muted" href="{% url 'logout' %}">
+      <a class="muted" href="{% url 'accounts:logout' %}">
         退出
       </a>
     </li>

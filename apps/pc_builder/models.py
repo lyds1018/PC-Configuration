@@ -3,19 +3,18 @@ from django.db import models
 
 class Cpu(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    core_count = models.IntegerField()
-    core_clock = models.FloatField()
-    boost_clock = models.FloatField()
-    microarchitecture = models.TextField()
-    tdp = models.IntegerField()
-    graphics = models.IntegerField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
-    socket_hint = models.TextField(null=True)
+    price = models.FloatField()
     socket = models.TextField(null=True)
-    threads = models.IntegerField(null=True)
-    l3_cache_mb = models.IntegerField(null=True)
+    core_count = models.IntegerField(null=True)
+    thread_count = models.IntegerField(null=True)
+    base_clock = models.FloatField(null=True)
+    boost_clock = models.FloatField(null=True)
+    tdp = models.IntegerField(null=True)
+    memory_type = models.TextField(null=True)
+    memory_speed = models.IntegerField(null=True)
+    single_score = models.FloatField(null=True)
+    multi_score = models.FloatField(null=True)
 
     class Meta:
         db_table = "cpu"
@@ -27,18 +26,16 @@ class Cpu(models.Model):
 
 class Gpu(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    chipset = models.TextField()
-    memory = models.FloatField()
-    core_clock = models.FloatField()
-    boost_clock = models.FloatField()
-    length = models.FloatField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
-    gpu_vendor = models.TextField(null=True)
+    price = models.FloatField()
+    length = models.FloatField(null=True)
     tdp = models.IntegerField(null=True)
-    chip_vendor = models.TextField(null=True)
-    length_class = models.TextField(null=True)
+    vram_size = models.IntegerField(null=True)
+    core_clock = models.FloatField(null=True)
+    memory_clock = models.FloatField(null=True)
+    gaming_score = models.FloatField(null=True)
+    compute_score = models.FloatField(null=True)
+    noise_level = models.FloatField(null=True)
 
     class Meta:
         db_table = "gpu"
@@ -50,15 +47,16 @@ class Gpu(models.Model):
 
 class Mb(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    socket = models.TextField()
-    form_factor = models.TextField()
-    max_memory = models.IntegerField()
-    memory_slots = models.IntegerField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
-    ddr_generation = models.TextField(null=True)
+    price = models.FloatField()
+    form = models.TextField(null=True)
+    socket = models.TextField(null=True)
+    memory_slots = models.IntegerField(null=True)
+    memory_type = models.TextField(null=True)
+    memory_frequency = models.IntegerField(null=True)
     m2_slots = models.IntegerField(null=True)
+    sata_ports = models.IntegerField(null=True)
+    fan_slots = models.IntegerField(null=True)
 
     class Meta:
         db_table = "mb"
@@ -70,17 +68,13 @@ class Mb(models.Model):
 
 class Ram(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    speed = models.TextField()
-    modules = models.TextField()
-    first_word_latency = models.FloatField()
-    cas_latency = models.FloatField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
+    price = models.FloatField()
+    type = models.TextField(null=True)
+    capacity = models.IntegerField(null=True)
+    frequency = models.IntegerField(null=True)
+    latency = models.IntegerField(null=True)
     module_count = models.IntegerField(null=True)
-    module_size_gb = models.FloatField(null=True)
-    total_capacity_gb = models.FloatField(null=True)
-    ddr_generation = models.TextField(null=True)
 
     class Meta:
         db_table = "ram"
@@ -92,15 +86,11 @@ class Ram(models.Model):
 
 class Psu(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    type = models.TextField()
-    efficiency = models.TextField()
-    wattage = models.IntegerField()
-    modular = models.TextField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
-    efficiency_score = models.IntegerField(null=True)
-    atx_version = models.TextField(null=True)
+    price = models.FloatField()
+    form = models.TextField(null=True)
+    wattage = models.IntegerField(null=True)
+    efficiency = models.TextField(null=True)
 
     class Meta:
         db_table = "psu"
@@ -112,14 +102,16 @@ class Psu(models.Model):
 
 class Case(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    type = models.TextField()
-    external_volume = models.FloatField()
-    internal_35_bays = models.IntegerField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
-    max_gpu_length = models.IntegerField(null=True)
-    max_cooler_height = models.IntegerField(null=True)
+    price = models.FloatField()
+    form = models.TextField(null=True)
+    gpu_length = models.IntegerField(null=True)
+    air_height = models.IntegerField(null=True)
+    fan_slots = models.IntegerField(null=True)
+    water_size = models.TextField(null=True)
+    psu_form = models.TextField(null=True)
+    storage_2_5 = models.IntegerField(null=True)
+    storage_3_5 = models.IntegerField(null=True)
 
     class Meta:
         db_table = "case"
@@ -131,17 +123,15 @@ class Case(models.Model):
 
 class Storage(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    capacity = models.FloatField()
-    type = models.TextField()
-    cache = models.FloatField()
-    form_factor = models.TextField()
-    interface = models.TextField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
-    storage_class = models.TextField(null=True)
-    is_nvme = models.IntegerField(null=True)
-    tbw = models.IntegerField(null=True)
+    price = models.FloatField()
+    type = models.TextField(null=True)
+    capacity = models.IntegerField(null=True)
+    cache_size = models.IntegerField(null=True)
+    read_speed = models.IntegerField(null=True)
+    write_speed = models.IntegerField(null=True)
+    random_read_iops = models.IntegerField(null=True)
+    random_write_iops = models.IntegerField(null=True)
 
     class Meta:
         db_table = "storage"
@@ -153,15 +143,12 @@ class Storage(models.Model):
 
 class CpuCooler(models.Model):
     name = models.TextField()
-    price = models.FloatField()
-    rpm = models.TextField()
-    noise_level = models.TextField()
-    size = models.FloatField()
-    brand_en = models.TextField(null=True)
     brand = models.TextField(null=True)
-    cooler_type = models.TextField(null=True)
-    tdp_capacity = models.IntegerField(null=True)
-    socket_support = models.TextField(null=True)
+    price = models.FloatField()
+    type = models.TextField(null=True)
+    height = models.IntegerField(null=True)
+    water_size = models.TextField(null=True)
+    noise_level = models.FloatField(null=True)
 
     class Meta:
         db_table = "cpu_cooler"

@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     # Local apps
     "accounts",
     "pc_builder",
-    "recommender",
 ]
 
 MIDDLEWARE = [

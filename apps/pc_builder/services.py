@@ -14,6 +14,13 @@ def _default_compatibility():
     return {"ok": True, "issues": []}
 
 
+def _as_int(value, default=0):
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
 def get_session_selection(request):
     return request.session.get(SELECTION_SESSION_KEY, {})
 
@@ -48,51 +55,122 @@ def resolve_selected_parts(selected_ids):
     return selected, total_price
 
 
+def _derive_storage_totals(selected):
+    storage = selected.get("storage")
+    totals = {
+        "total_m2": 0,
+        "total_sata": 0,
+        "total_sata_ssd": 0,
+        "total_hdd": 0,
+    }
+
+    if not storage:
+        return totals
+
+    storage_type = str(getattr(storage, "type", "") or "").upper()
+    if "M.2" in storage_type:
+        totals["total_m2"] = 1
+    else:
+        totals["total_sata"] = 1
+        if "HDD" in storage_type:
+            totals["total_hdd"] = 1
+        elif "SATA SSD" in storage_type:
+            totals["total_sata_ssd"] = 1
+
+    return totals
+
+
 def build_compatibility_payload(selected):
-    parts = {
+    payload = {
         "cpu": {},
         "mb": {},
         "ram": {},
+        "cooler": {},
+        "gpu": {},
         "case": {},
         "psu": {},
-        "gpu": {},
-        "ssd": {},
-        "storage_count": 1,
+        "storages": [],
+        "totals": {
+            "total_m2": 0,
+            "total_sata": 0,
+            "total_sata_ssd": 0,
+            "total_hdd": 0,
+            "total_memory": 0,
+            "total_fan": 0,
+        },
     }
 
     if selected.get("cpu"):
-        parts["cpu"] = {"tdp": selected["cpu"].tdp}
-    if selected.get("mb"):
-        parts["mb"] = {
-            "socket": selected["mb"].socket,
-            "form_factor": selected["mb"].form_factor,
-            "max_memory": selected["mb"].max_memory,
-            "memory_slots": selected["mb"].memory_slots,
+        payload["cpu"] = {
+            "socket": selected["cpu"].socket,
+            "memory_type": selected["cpu"].memory_type,
+            "memory_speed": selected["cpu"].memory_speed,
+            "tdp": selected["cpu"].tdp,
         }
-    if selected.get("ram"):
-        parts["ram"] = {"modules": selected["ram"].modules}
-    if selected.get("case"):
-        parts["case"] = {
-            "type": selected["case"].type,
-            "internal_35_bays": selected["case"].internal_35_bays,
-        }
-    if selected.get("psu"):
-        parts["psu"] = {"wattage": selected["psu"].wattage}
-    if selected.get("gpu"):
-        parts["gpu"] = {"boost_clock": selected["gpu"].boost_clock}
-    if selected.get("storage"):
-        parts["ssd"] = {"type": selected["storage"].type}
 
-    return parts
+    if selected.get("mb"):
+        payload["mb"] = {
+            "socket": selected["mb"].socket,
+            "form": selected["mb"].form,
+            "memory_type": selected["mb"].memory_type,
+            "memory_frequency": selected["mb"].memory_frequency,
+            "memory_slots": selected["mb"].memory_slots,
+            "m2_slots": selected["mb"].m2_slots,
+            "sata_ports": selected["mb"].sata_ports,
+            "fan_slots": selected["mb"].fan_slots,
+        }
+
+    if selected.get("ram"):
+        payload["ram"] = {
+            "type": selected["ram"].type,
+            "frequency": selected["ram"].frequency,
+        }
+        payload["totals"]["total_memory"] = _as_int(getattr(selected["ram"], "module_count", 1), default=1)
+
+    if selected.get("cooler"):
+        payload["cooler"] = {
+            "type": selected["cooler"].type,
+            "height": selected["cooler"].height,
+            "water_size": selected["cooler"].water_size,
+        }
+
+    if selected.get("gpu"):
+        payload["gpu"] = {
+            "length": selected["gpu"].length,
+            "tdp": selected["gpu"].tdp,
+        }
+
+    if selected.get("case"):
+        payload["case"] = {
+            "form": selected["case"].form,
+            "gpu_length": selected["case"].gpu_length,
+            "air_height": selected["case"].air_height,
+            "water_size": selected["case"].water_size,
+            "psu_form": selected["case"].psu_form,
+            "storage_2_5": selected["case"].storage_2_5,
+            "storage_3_5": selected["case"].storage_3_5,
+        }
+
+    if selected.get("psu"):
+        payload["psu"] = {
+            "form": selected["psu"].form,
+            "wattage": selected["psu"].wattage,
+        }
+
+    if selected.get("storage"):
+        payload["storages"].append({"type": selected["storage"].type})
+
+    payload["totals"].update(_derive_storage_totals(selected))
+    return payload
 
 
 def estimate_wattage(selected):
     if not selected.get("cpu") or not selected.get("gpu"):
         return None
 
-    cpu_power = float(selected["cpu"].tdp or 0)
-    gpu_clock = float(selected["gpu"].boost_clock or 0)
-    return cpu_power + (0.16 * gpu_clock + 50 if gpu_clock else 0)
+    cpu_tdp = float(selected["cpu"].tdp or 0)
+    gpu_tdp = float(selected["gpu"].tdp or 0)
+    return cpu_tdp + gpu_tdp
 
 
 def build_builder_context(request):
