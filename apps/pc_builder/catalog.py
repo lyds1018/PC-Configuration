@@ -120,7 +120,7 @@ PARTS_CONFIG = {
         "columns": [
             ("name", "型号"),
             ("type", "类型"),
-            ("height", "风冷高度(mm)"),
+            ("air_height", "风冷高度(mm)"),
             ("water_size", "冷排规格"),
             ("noise_level", "噪音(dB)"),
             ("price", "价格(￥)"),

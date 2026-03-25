@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
     
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260325-search-inline-2">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -44,7 +44,7 @@
             <!-- Messages -->
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">
+                    <div class="alert alert-{{ message.tags }} js-auto-hide-alert">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -64,7 +64,7 @@
     </footer>
 
     <!-- JavaScript -->
-    <script src="{% static 'js/main.js' %}"></script>
+    <script src="{% static 'js/main.js' %}?v=20260325-compat-persist-2"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

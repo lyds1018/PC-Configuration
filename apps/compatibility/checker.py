@@ -190,14 +190,14 @@ def _check_cooler_case(cooler: Any, case: Any) -> list[str]:
     issues: list[str] = []
 
     if cooler_type == "AIR":
-        cooler_height = _to_int(_read(cooler, "height", "air_height", "size"))
+        cooler_height = _to_int(_read(cooler, "air_height", "height", "size"))
         case_air_height = _to_int(_read(case, "air_height"))
         if cooler_height is not None and case_air_height is not None and cooler_height > case_air_height:
             issues.append(f"风冷高度 {cooler_height}mm 超过机箱风冷限高 {case_air_height}mm。")
 
     if cooler_type == "WATER":
-        cooler_water = _max_radiator(_read(cooler, "water_size"))
-        case_water = _max_radiator(_read(case, "water_size"))
+        cooler_water = _max_radiator(_read(cooler, "water_size", "watersize"))
+        case_water = _max_radiator(_read(case, "water_size", "watersize"))
         if cooler_water is not None and case_water is not None and cooler_water > case_water:
             issues.append(f"水冷排规格 {cooler_water} 超过机箱支持的最大冷排规格 {case_water}。")
 
@@ -263,11 +263,6 @@ def _check_totals(mb: Any, totals: dict[str, int]) -> list[str]:
     if mb_slots is not None and mb_slots < total_memory:
         issues.append(f"主板内存插槽数 {mb_slots} 少于所需 {total_memory}。")
 
-    total_fan = totals.get("total_fan", 0)
-    mb_fan_slots = _to_int(_read(mb, "fan_slots"))
-    if mb_fan_slots is not None and mb_fan_slots < total_fan:
-        issues.append(f"主板风扇接口数 {mb_fan_slots} 少于所需 {total_fan}。")
-
     return issues
 
 
@@ -280,7 +275,6 @@ def _derive_storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
             "total_sata_ssd": int(values.get("total_sata_ssd", 0) or 0),
             "total_hdd": int(values.get("total_hdd", 0) or 0),
             "total_memory": int(values.get("total_memory", 0) or 0),
-            "total_fan": int(values.get("total_fan", 0) or 0),
         }
 
     total_m2 = total_sata = total_sata_ssd = total_hdd = 0
@@ -301,7 +295,6 @@ def _derive_storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
         "total_sata_ssd": total_sata_ssd,
         "total_hdd": total_hdd,
         "total_memory": int(parts.get("total_memory", 0) or 0),
-        "total_fan": int(parts.get("total_fan", 0) or 0),
     }
 
 

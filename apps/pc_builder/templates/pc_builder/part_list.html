@@ -6,7 +6,6 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">{{ title }}</h1>
-  <p class="page-subtitle">浏览和选择{{ title }}</p>
 </div>
 
 {% if invalid %}
@@ -14,85 +13,217 @@
     <strong>错误：</strong>未找到对应的配件类型。
   </div>
 {% else %}
-  <!-- Toolbar -->
-  <div class="card mb-3">
-    <div class="flex-between" style="flex-wrap: wrap; gap: 1rem;">
-      <div>
-        <span class="badge badge-primary">{{ items|length }} 条可用数据</span>
-      </div>
-      <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-        <form method="get" style="display: flex; gap: 0.5rem;">
-          <input 
-            type="text" 
-            name="q" 
-            value="{{ q }}" 
-            placeholder="搜索 {{ title }}..." 
-            class="form-control" 
-            style="min-width: 220px;"
-          />
-          <input type="hidden" name="sort" value="{{ sort }}" />
-          <input type="hidden" name="dir" value="{{ dir }}" />
-          <button type="submit" class="btn btn-primary">搜索</button>
-        </form>
-        <a href="{% url 'pc_builder:build_pc' %}" class="btn btn-outline">← 返回选择</a>
-      </div>
-    </div>
-  </div>
+  <div class="part-list-layout">
+    <aside class="card filter-sidebar">
+      <div class="card-header">筛选</div>
+      <form method="get" class="filter-form">
+        <input type="hidden" name="q" value="{{ q }}" />
+        <input type="hidden" name="sort" value="{{ sort }}" />
+        <input type="hidden" name="dir" value="{{ dir }}" />
 
-  <!-- Table -->
-  <div class="card">
-    <div class="table-responsive">
-      <table class="table">
-        <thead>
-          <tr>
-            {% for col in columns %}
-              <th>
-                {% if sort == col.key %}
-                  {% if dir == "asc" %}
-                    <a href="?q={{ q|urlencode }}&sort={{ col.key }}&dir=desc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                      {{ col.label }} <span style="color: var(--primary-color);">▲</span>
-                    </a>
-                  {% else %}
-                    <a href="?q={{ q|urlencode }}&sort={{ col.key }}&dir=asc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                      {{ col.label }} <span style="color: var(--primary-color);">▼</span>
-                    </a>
-                  {% endif %}
-                {% else %}
-                  <a href="?q={{ q|urlencode }}&sort={{ col.key }}&dir=asc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                    {{ col.label }}
-                  </a>
-                {% endif %}
-              </th>
-            {% endfor %}
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in items %}
-            <tr>
-              {% for col in columns %}
-                <td>{{ item|getattr:col.key }}</td>
+        {% for f in numeric_filters %}
+          <div class="filter-block">
+            <div class="filter-title">{{ f.label }}</div>
+            <div class="range-values-row">
+              <span class="range-value-min">{{ f.current_min }}</span>
+              <span class="range-value-max">{{ f.current_max }}</span>
+            </div>
+            <div
+              class="dual-range"
+              data-min="{{ f.db_min }}"
+              data-max="{{ f.db_max }}"
+              data-step="{{ f.step }}"
+            >
+              <div class="dual-range-track"></div>
+              <div class="dual-range-fill"></div>
+              <input class="range-input range-input-min" type="range" value="{{ f.current_min }}" min="{{ f.db_min }}" max="{{ f.db_max }}" step="{{ f.step }}" />
+              <input class="range-input range-input-max" type="range" value="{{ f.current_max }}" min="{{ f.db_min }}" max="{{ f.db_max }}" step="{{ f.step }}" />
+              <input type="hidden" name="{{ f.field }}_min" class="range-hidden-min" value="{{ f.current_min }}">
+              <input type="hidden" name="{{ f.field }}_max" class="range-hidden-max" value="{{ f.current_max }}">
+            </div>
+          </div>
+        {% endfor %}
+
+        {% for f in enum_filters %}
+          <div class="filter-block">
+            <div class="filter-title">{{ f.label }}</div>
+            <div class="filter-checks">
+              {% for opt in f.options %}
+                <label class="filter-check-item">
+                  <input type="checkbox" name="{{ f.field }}" value="{{ opt }}" {% if opt in f.selected %}checked{% endif %}>
+                  <span>{{ opt }}</span>
+                </label>
               {% endfor %}
-              <td>
-                {% if selected_id == item.id %}
-                  <span class="badge badge-success">已选</span>
-                {% else %}
-                  <a href="{% url 'pc_builder:select_part' part_type item.id %}" class="btn btn-sm btn-primary">
-                    选择
-                  </a>
-                {% endif %}
-              </td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="{{ columns|length|add:'1' }}" class="text-center text-muted" style="padding: 2rem;">
-                没有匹配的数据。
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+            </div>
+          </div>
+        {% endfor %}
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button type="submit" class="btn btn-primary">应用筛选</button>
+          <a href="{% url 'pc_builder:part_list' part_type %}" class="btn btn-outline">重置</a>
+        </div>
+      </form>
+    </aside>
+
+    <section class="part-list-main">
+      <!-- Toolbar -->
+      <div class="card mb-3">
+        <div class="flex-between" style="flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <span class="badge badge-primary">{{ items|length }} 条可用数据</span>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <form method="get" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <div class="search-input-wrap">
+                <span class="search-input-icon" aria-hidden="true"></span>
+                <input
+                  type="text"
+                  name="q"
+                  value="{{ q }}"
+                  placeholder="搜索 {{ title }}..."
+                  class="form-control search-input"
+                />
+              </div>
+              {% for f in numeric_filters %}
+                <input type="hidden" name="{{ f.field }}_min" value="{{ f.selected_min }}" />
+                <input type="hidden" name="{{ f.field }}_max" value="{{ f.selected_max }}" />
+              {% endfor %}
+              {% for f in enum_filters %}
+                {% for opt in f.selected %}
+                  <input type="hidden" name="{{ f.field }}" value="{{ opt }}" />
+                {% endfor %}
+              {% endfor %}
+              <input type="hidden" name="sort" value="{{ sort }}" />
+              <input type="hidden" name="dir" value="{{ dir }}" />
+            </form>
+            <a href="{% url 'pc_builder:build_pc' %}" class="btn btn-outline">返回选择</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                {% for col in columns %}
+                  <th>
+                    {% if sort == col.key %}
+                      {% if dir == "asc" %}
+                        <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=desc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                          {{ col.label }} <span style="color: var(--primary-color);">▲</span>
+                        </a>
+                      {% else %}
+                        <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=asc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                          {{ col.label }} <span style="color: var(--primary-color);">▼</span>
+                        </a>
+                      {% endif %}
+                    {% else %}
+                      <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=asc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                        {{ col.label }}
+                      </a>
+                    {% endif %}
+                  </th>
+                {% endfor %}
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+                <tr>
+                  {% for col in columns %}
+                    <td>{{ item|getattr:col.key }}</td>
+                  {% endfor %}
+                  <td>
+                    {% if part_type == "storage" %}
+                      <form action="{% url 'pc_builder:select_part' part_type item.id %}" method="get" style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                        <input
+                          type="number"
+                          name="qty"
+                          min="1"
+                          max="16"
+                          value="{% if selected_id == item.id %}{{ selected_qty }}{% else %}1{% endif %}"
+                          class="form-control"
+                          style="width: 88px;"
+                        />
+                        <button type="submit" class="btn btn-sm btn-primary">{% if selected_id == item.id %}更新{% else %}选择{% endif %}</button>
+                        {% if selected_id == item.id %}
+                          <span class="badge badge-success">已选</span>
+                        {% endif %}
+                      </form>
+                    {% else %}
+                      {% if selected_id == item.id %}
+                        <span class="badge badge-success">已选</span>
+                      {% else %}
+                        <a href="{% url 'pc_builder:select_part' part_type item.id %}" class="btn btn-sm btn-primary">
+                          选择
+                        </a>
+                      {% endif %}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="{{ columns|length|add:'1' }}" class="text-center text-muted" style="padding: 2rem;">
+                    没有匹配的数据。
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const groups = document.querySelectorAll(".dual-range");
+  groups.forEach((group) => {
+    const minInput = group.querySelector(".range-input-min");
+    const maxInput = group.querySelector(".range-input-max");
+    const hiddenMin = group.querySelector(".range-hidden-min");
+    const hiddenMax = group.querySelector(".range-hidden-max");
+    const valueMin = group.parentElement.querySelector(".range-value-min");
+    const valueMax = group.parentElement.querySelector(".range-value-max");
+    const fill = group.querySelector(".dual-range-fill");
+    const minBound = parseFloat(group.dataset.min);
+    const maxBound = parseFloat(group.dataset.max);
+    const step = parseFloat(group.dataset.step || "1");
+
+    const formatValue = (v) => (step >= 1 ? String(Math.round(v)) : Number(v).toFixed(1));
+    const clamp = () => {
+      let minVal = parseFloat(minInput.value);
+      let maxVal = parseFloat(maxInput.value);
+      if (minVal > maxVal) {
+        if (document.activeElement === minInput) {
+          maxVal = minVal;
+          maxInput.value = maxVal;
+        } else {
+          minVal = maxVal;
+          minInput.value = minVal;
+        }
+      }
+
+      const left = ((minVal - minBound) / (maxBound - minBound)) * 100;
+      const right = ((maxVal - minBound) / (maxBound - minBound)) * 100;
+      fill.style.left = left + "%";
+      fill.style.width = (right - left) + "%";
+
+      hiddenMin.value = minVal;
+      hiddenMax.value = maxVal;
+      valueMin.textContent = formatValue(minVal);
+      valueMax.textContent = formatValue(maxVal);
+    };
+
+    minInput.addEventListener("input", clamp);
+    maxInput.addEventListener("input", clamp);
+    clamp();
+  });
+});
+</script>
 {% endblock %}

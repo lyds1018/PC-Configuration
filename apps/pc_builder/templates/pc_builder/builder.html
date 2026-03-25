@@ -9,40 +9,6 @@
   <p class="page-subtitle">选择您的配件，打造专属电脑</p>
 </div>
 
-<!-- Compatibility Notice -->
-{% if can_check %}
-  <div class="alert alert-{% if compatibility.ok %}success{% else %}warning{% endif %}">
-    <div class="flex-between">
-      <div>
-        {% if compatibility.ok %}
-          <strong>兼容性检查通过</strong>：当前未检测到不兼容项。
-        {% else %}
-          <strong>兼容性警告</strong>：发现 {{ compatibility.issues|length }} 项问题。
-        {% endif %}
-      </div>
-      <div class="badge badge-primary">
-        预计功耗：{% if estimated_wattage %}{{ estimated_wattage|floatformat:1 }}W{% else %}0W{% endif %}
-      </div>
-    </div>
-  </div>
-  
-  {% if not compatibility.ok %}
-    <div class="alert alert-warning">
-      <strong>兼容性问题：</strong>
-      <ul class="mb-0 mt-2">
-        {% for issue in compatibility.issues %}
-          <li>{{ issue }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-  {% endif %}
-{% else %}
-  <div class="alert alert-info">
-    <strong>提示</strong>：请先完成配件选取，然后进行兼容性检查。
-    <div class="mt-2 badge badge-primary">预计功耗：0W</div>
-  </div>
-{% endif %}
-
 <!-- Components Table -->
 <div class="card">
   <div class="card-header">配件清单</div>
@@ -67,14 +33,18 @@
               </a>
               {% with chosen=selected|get_item:item.key %}
                 {% if chosen %}
-                  <span class="text-muted ml-2">已选：{{ chosen.name }}</span>
+                  <span class="text-muted ml-2">已选：{{ chosen.name }}{% if item.key == "storage" %} x{{ storage_qty }}{% endif %}</span>
                 {% endif %}
               {% endwith %}
             </td>
             <td>
               {% with chosen=selected|get_item:item.key %}
                 {% if chosen %}
-                  <strong class="text-success">￥{{ chosen.price }}</strong>
+                  {% if item.key == "storage" %}
+                    <strong class="text-success">￥{{ storage_line_price|floatformat:2 }}</strong>
+                  {% else %}
+                    <strong class="text-success">￥{{ chosen.price }}</strong>
+                  {% endif %}
                 {% else %}
                   <span class="text-muted">—</span>
                 {% endif %}
@@ -97,5 +67,38 @@
       <h2 style="margin: 0; color: var(--secondary-color);">￥{{ total_price|floatformat:2 }}</h2>
     </div>
   </div>
+</div>
+
+<!-- Persistent Issue Panel -->
+<div class="card">
+  <div class="card-header">问题栏</div>
+  <div class="flex-between mb-2">
+    <div>
+      {% if can_check %}
+        {% if compatibility.ok %}
+          <strong class="text-success">兼容性检查通过</strong>
+        {% else %}
+          <strong class="text-danger">发现 {{ compatibility.issues|length }} 项兼容性问题</strong>
+        {% endif %}
+      {% else %}
+        <strong class="text-muted">请先完成 CPU / 主板 / 内存 / 存储 / 显卡 / 机箱 / 电源 选择</strong>
+      {% endif %}
+    </div>
+    <div class="badge badge-primary">
+      预计功耗：{% if estimated_wattage %}{{ estimated_wattage|floatformat:1 }}W{% else %}0W{% endif %}
+    </div>
+  </div>
+
+  {% if can_check and not compatibility.ok %}
+    <ul class="mb-0 mt-2">
+      {% for issue in compatibility.issues %}
+        <li>{{ issue }}</li>
+      {% endfor %}
+    </ul>
+  {% elif can_check and compatibility.ok %}
+    <div class="text-muted">当前配置未检测到兼容性问题。</div>
+  {% else %}
+    <div class="text-muted">完成关键配件选择后，这里会显示兼容性问题明细。</div>
+  {% endif %}
 </div>
 {% endblock %}

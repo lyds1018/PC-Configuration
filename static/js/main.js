@@ -3,8 +3,9 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('PC Configuration System loaded');
     
-    // Auto-hide alerts after 5 seconds
-    const alerts = document.querySelectorAll('.alert');
+    // Auto-hide flash messages after 5 seconds
+    // Compatibility result blocks should stay visible until user changes parts.
+    const alerts = document.querySelectorAll('.js-auto-hide-alert');
     alerts.forEach(function(alert) {
         setTimeout(function() {
             alert.style.transition = 'opacity 0.3s';

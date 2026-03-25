@@ -56,7 +56,6 @@ class Mb(models.Model):
     memory_frequency = models.IntegerField(null=True)
     m2_slots = models.IntegerField(null=True)
     sata_ports = models.IntegerField(null=True)
-    fan_slots = models.IntegerField(null=True)
 
     class Meta:
         db_table = "mb"
@@ -107,8 +106,7 @@ class Case(models.Model):
     form = models.TextField(null=True)
     gpu_length = models.IntegerField(null=True)
     air_height = models.IntegerField(null=True)
-    fan_slots = models.IntegerField(null=True)
-    water_size = models.TextField(null=True)
+    water_size = models.CharField(max_length=3, null=True)
     psu_form = models.TextField(null=True)
     storage_2_5 = models.IntegerField(null=True)
     storage_3_5 = models.IntegerField(null=True)
@@ -146,8 +144,8 @@ class CpuCooler(models.Model):
     brand = models.TextField(null=True)
     price = models.FloatField()
     type = models.TextField(null=True)
-    height = models.IntegerField(null=True)
-    water_size = models.TextField(null=True)
+    air_height = models.IntegerField(null=True)
+    water_size = models.CharField(max_length=3, null=True)
     noise_level = models.FloatField(null=True)
 
     class Meta:
