@@ -10,7 +10,7 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Add apps directory to Python path
+# 将 apps 目录加入 Python 路径，便于直接使用 "accounts" / "pc_builder" 作为 app 名称
 APPS_DIR = BASE_DIR / "apps"
 if str(APPS_DIR) not in sys.path:
     sys.path.insert(0, str(APPS_DIR))
@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     # Local apps
     "accounts",
     "pc_builder",
+    "recommender",
 ]
 
 MIDDLEWARE = [
@@ -106,12 +107,12 @@ TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# 静态资源（CSS / JS / 图片）
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
-STATIC_ROOT = BASE_DIR / "staticfiles"  # For production
+STATIC_ROOT = BASE_DIR / "staticfiles"  # 生产环境收集静态资源的目录
 
 # Media files
 MEDIA_URL = "/media/"

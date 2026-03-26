@@ -17,9 +17,9 @@
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     --radius-sm: 0.375rem;
     --radius-md: 0.5rem;
-    --radius-lg: 0.75rem;
-    --page-max-width: 1280px;
-    --page-gutter: 1rem;
+    --radius-lg: 0.5rem;
+    --page-max-width: 1600px;
+    --page-gutter: 0.05rem;
 }
 
 /* Reset and base styles */
@@ -61,6 +61,13 @@ a:hover {
     position: sticky;
     top: 0;
     z-index: 100;
+}
+
+.navbar > .container,
+.main-content > .container {
+    max-width: var(--page-max-width);
+    padding-left: var(--page-gutter);
+    padding-right: var(--page-gutter);
 }
 
 .navbar-content {
@@ -587,6 +594,12 @@ a:hover {
     margin-bottom: 2rem;
 }
 
+.part-list-header {
+    width: 300px;
+    text-align: center;
+    margin-left: 0;
+}
+
 .page-title {
     font-size: 2rem;
     font-weight: 700;
@@ -615,6 +628,11 @@ a:hover {
         grid-template-columns: 1fr;
     }
 
+    .part-list-header {
+        width: 100%;
+        text-align: left;
+    }
+
     .filter-sidebar {
         position: static;
         max-height: none;
@@ -623,7 +641,7 @@ a:hover {
 
 @media (max-width: 768px) {
     :root {
-        --page-gutter: 1rem;
+        --page-gutter: 0.05rem;
     }
 
     .navbar-content {
