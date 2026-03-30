@@ -2,9 +2,8 @@ import json
 import os
 from typing import Dict, Mapping, Sequence
 
-
 BASE_URL = "https://api.moonshot.cn/v1"
-MODEL = "kimi-k2"
+MODEL = "kimi-k2.5"
 
 
 def _safe_float(value) -> float:
@@ -66,8 +65,7 @@ def build_agent_prompt(
         "  ]\n"
         "}\n\n"
         f"用户偏好:\n{json.dumps(prefs, ensure_ascii=False)}\n\n"
-        "候选组合:\n"
-        + "\n".join(combos)
+        "候选组合:\n" + "\n".join(combos)
     )
 
 

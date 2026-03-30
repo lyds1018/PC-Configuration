@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load pc_builder_extras %}
+{% load static %}
 
 {% block title %}方案详情 - PC 配置推荐系统{% endblock %}
 
@@ -10,13 +11,13 @@
 </div>
 
 <div class="card">
-  <div class="flex-between" style="gap: 1rem; flex-wrap: wrap;">
+  <div class="flex-between inline-flex-wrap-gap-1">
     <div>
       <div><strong>来源：</strong>{{ history.get_source_display }}</div>
       <div><strong>保存时间：</strong>{{ history.created_at|date:"Y-m-d H:i:s" }}</div>
     </div>
     <div>
-      <h2 style="margin: 0; color: var(--secondary-color);">￥{{ history.total_price|floatformat:2 }}</h2>
+      <h2 class="price-emphasis">￥{{ history.total_price|floatformat:2 }}</h2>
     </div>
   </div>
 </div>
@@ -65,7 +66,7 @@
   </div>
 {% endif %}
 
-<div class="flex-between" style="margin-top: 1rem; gap: 0.75rem; flex-wrap: wrap;">
+<div class="flex-between mt-2 inline-flex-wrap-gap-075">
   <a href="{% url 'build_history:history_list' %}" class="btn btn-outline">返回历史列表</a>
   <form method="post" action="{% url 'build_history:delete_history' history.id %}" id="delete-history-form">
     {% csrf_token %}
@@ -75,19 +76,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-  (function () {
-    const form = document.getElementById("delete-history-form");
-    if (!form) return;
-    form.addEventListener("submit", async function (e) {
-      e.preventDefault();
-      if (!window.PCConfig || typeof window.PCConfig.confirmDialog !== "function") {
-        if (window.confirm("确认删除这条历史方案吗？")) form.submit();
-        return;
-      }
-      const result = await window.PCConfig.confirmDialog("删除方案", "确认删除这条历史方案吗？");
-      if (result.confirmed) form.submit();
-    });
-  })();
-</script>
+<script src="{% static 'js/pages/history-detail.js' %}?v=20260330-pages-1"></script>
 {% endblock %}

@@ -24,6 +24,24 @@ GPU_CHIP_BRAND_OPTIONS = ["AMD", "NVIDIA"]
 LAST_FORM_SESSION_KEY = "recommender_last_form_data"
 
 
+def _extract_form_data(request):
+    return {
+        "budget_min": request.GET.get("budget_min", ""),
+        "budget_max": request.GET.get("budget_max", ""),
+        "workload": request.GET.get("workload", WORKLOAD_GAME),
+        "cpu_brand": request.GET.get("cpu_brand", ""),
+        "gpu_chip_brand": request.GET.get("gpu_chip_brand", ""),
+        "free_text": request.GET.get("free_text", ""),
+        "top_k": request.GET.get("top_k", "3"),
+    }
+
+
+def _agent_value(agent_result, key, default=""):
+    if not isinstance(agent_result, dict):
+        return default
+    return str(agent_result.get(key, default)).strip()
+
+
 def _build_default_form_data(request):
     default = {
         "budget_min": "",
@@ -111,15 +129,7 @@ def recommend_page(request):
 
 @login_required
 def recommend_result_page(request):
-    form_data = {
-        "budget_min": request.GET.get("budget_min", ""),
-        "budget_max": request.GET.get("budget_max", ""),
-        "workload": request.GET.get("workload", WORKLOAD_GAME),
-        "cpu_brand": request.GET.get("cpu_brand", ""),
-        "gpu_chip_brand": request.GET.get("gpu_chip_brand", ""),
-        "free_text": request.GET.get("free_text", ""),
-        "top_k": request.GET.get("top_k", "3"),
-    }
+    form_data = _extract_form_data(request)
     return render(
         request,
         "recommender/recommend_result.html",
@@ -131,15 +141,7 @@ def recommend_result_page(request):
 
 @login_required
 def recommend_result_data(request):
-    form_data = {
-        "budget_min": request.GET.get("budget_min", ""),
-        "budget_max": request.GET.get("budget_max", ""),
-        "workload": request.GET.get("workload", WORKLOAD_GAME),
-        "cpu_brand": request.GET.get("cpu_brand", ""),
-        "gpu_chip_brand": request.GET.get("gpu_chip_brand", ""),
-        "free_text": request.GET.get("free_text", ""),
-        "top_k": request.GET.get("top_k", "3"),
-    }
+    form_data = _extract_form_data(request)
     normalized_form_data, recommendations, meta, _parse_result, agent_result = _build_recommendation_result(form_data)
     request.session[LAST_FORM_SESSION_KEY] = normalized_form_data
 
@@ -165,16 +167,14 @@ def recommend_result_data(request):
         )
 
     request.session["recommender_last_rows"] = rows
-    request.session["recommender_last_agent_summary"] = (
-        str(agent_result.get("summary", "")).strip() if isinstance(agent_result, dict) else ""
-    )
+    request.session["recommender_last_agent_summary"] = _agent_value(agent_result, "summary")
 
     return JsonResponse(
         {
             "meta": meta,
             "agent_enabled": bool(agent_result.get("enabled")) if isinstance(agent_result, dict) else False,
-            "agent_summary": str(agent_result.get("summary", "")).strip() if isinstance(agent_result, dict) else "",
-            "agent_reason": str(agent_result.get("reason", "")).strip() if isinstance(agent_result, dict) else "",
+            "agent_summary": _agent_value(agent_result, "summary"),
+            "agent_reason": _agent_value(agent_result, "reason"),
             "rows": rows,
         }
     )

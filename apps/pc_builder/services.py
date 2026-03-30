@@ -9,6 +9,24 @@ from .catalog import (
 )
 from .compatibility import run_checks
 
+BRAND_FIELD_NAMES = ("brand", "chip_brand", "card_brand")
+BRAND_LABEL_MAP = {
+    "brand": "品牌",
+    "chip_brand": "芯片品牌",
+    "card_brand": "显卡品牌",
+}
+ENUM_FILTER_MAX_OPTIONS = 20
+DEFAULT_ENUM_EXCLUDED_FIELDS = {"name", "brand", "chip_brand", "card_brand"}
+COMPATIBILITY_FIELD_MAP = {
+    "cpu": ("socket", "memory_type", "memory_speed", "tdp"),
+    "mb": ("socket", "form", "memory_type", "memory_frequency", "memory_slots", "m2_slots", "sata_ports"),
+    "ram": ("type", "frequency"),
+    "cooler": ("type", "air_height", "water_size"),
+    "gpu": ("length", "tdp"),
+    "case": ("form", "gpu_length", "air_height", "water_size", "psu_form", "storage_2_5", "storage_3_5"),
+    "psu": ("form", "wattage"),
+}
+
 
 def _default_compatibility():
     return {"ok": True, "issues": []}
@@ -25,6 +43,153 @@ def _read_quantity(selected_ids, key, default=1):
     qty_key = f"{key}_qty"
     qty = _as_int(selected_ids.get(qty_key), default=default)
     return max(1, qty)
+
+
+def _model_has_field(model, field_name):
+    try:
+        model._meta.get_field(field_name)
+        return True
+    except Exception:
+        return False
+
+
+def _distinct_non_empty_values(queryset, field_name):
+    return list(
+        queryset.exclude(**{f"{field_name}__isnull": True})
+        .exclude(**{field_name: ""})
+        .values_list(field_name, flat=True)
+        .distinct()
+        .order_by(field_name)
+    )
+
+
+def _parse_optional_float(raw_value):
+    text = (raw_value or "").strip()
+    if text == "":
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _build_sort_query_prefix(request):
+    params = request.GET.copy()
+    params.pop("sort", None)
+    params.pop("dir", None)
+    query_prefix = params.urlencode()
+    if query_prefix:
+        query_prefix += "&"
+    return query_prefix
+
+
+def _extract_part_payload(part, field_names):
+    return {field_name: getattr(part, field_name) for field_name in field_names}
+
+
+def _normalize_sort_request(sort, direction, allowed_sort_fields):
+    if sort not in allowed_sort_fields:
+        sort = "price" if "price" in allowed_sort_fields else allowed_sort_fields[0]
+    if direction not in {"asc", "desc"}:
+        direction = "asc"
+    return sort, direction
+
+
+def _apply_brand_filters(request, model, base_queryset, queryset, enum_filters):
+    brand_fields = [field_name for field_name in BRAND_FIELD_NAMES if _model_has_field(model, field_name)]
+    for field_name in brand_fields:
+        values = _distinct_non_empty_values(base_queryset, field_name)
+        if not values:
+            continue
+
+        selected_values = request.GET.getlist(field_name)
+        if selected_values:
+            queryset = queryset.filter(**{f"{field_name}__in": selected_values})
+        enum_filters.append(
+            {
+                "field": field_name,
+                "label": BRAND_LABEL_MAP.get(field_name, "品牌"),
+                "options": values,
+                "selected": selected_values,
+            }
+        )
+    return queryset
+
+
+def _apply_column_filters(request, model, config, base_queryset, queryset, search_fields, numeric_filters, enum_filters):
+    for field_key, label in config["columns"]:
+        try:
+            field_obj = model._meta.get_field(field_key)
+        except Exception:
+            continue
+
+        if isinstance(field_obj, (IntegerField, FloatField, DecimalField)):
+            bounds = base_queryset.aggregate(min_v=Min(field_key), max_v=Max(field_key))
+            db_min = bounds.get("min_v")
+            db_max = bounds.get("max_v")
+            if db_min is None or db_max is None:
+                continue
+
+            min_param = f"{field_key}_min"
+            max_param = f"{field_key}_max"
+            selected_min_raw = (request.GET.get(min_param) or "").strip()
+            selected_max_raw = (request.GET.get(max_param) or "").strip()
+
+            selected_min = _parse_optional_float(selected_min_raw)
+            selected_max = _parse_optional_float(selected_max_raw)
+            if selected_min is not None:
+                queryset = queryset.filter(**{f"{field_key}__gte": selected_min})
+            if selected_max is not None:
+                queryset = queryset.filter(**{f"{field_key}__lte": selected_max})
+
+            current_min = selected_min if selected_min is not None else float(db_min)
+            current_max = selected_max if selected_max is not None else float(db_max)
+
+            numeric_filters.append(
+                {
+                    "field": field_key,
+                    "label": label,
+                    "db_min": db_min,
+                    "db_max": db_max,
+                    "selected_min": selected_min_raw,
+                    "selected_max": selected_max_raw,
+                    "current_min": current_min,
+                    "current_max": current_max,
+                    "step": "1" if isinstance(field_obj, IntegerField) else "0.1",
+                }
+            )
+            continue
+
+        if field_key not in search_fields or field_key in DEFAULT_ENUM_EXCLUDED_FIELDS:
+            continue
+
+        values = _distinct_non_empty_values(base_queryset, field_key)
+        if not values or len(values) > ENUM_FILTER_MAX_OPTIONS:
+            continue
+
+        selected_values = request.GET.getlist(field_key)
+        if selected_values:
+            queryset = queryset.filter(**{f"{field_key}__in": selected_values})
+
+        enum_filters.append(
+            {
+                "field": field_key,
+                "label": label,
+                "options": values,
+                "selected": selected_values,
+            }
+        )
+    return queryset
+
+
+def _apply_keyword_search(queryset, q, search_fields):
+    if not q:
+        return queryset
+
+    query = Q()
+    for field in search_fields:
+        query |= Q(**{f"{field}__icontains": q})
+    return queryset.filter(query)
 
 
 def get_session_selection(request):
@@ -107,61 +272,14 @@ def build_compatibility_payload(selected, selected_ids):
         },
     }
 
-    if selected.get("cpu"):
-        payload["cpu"] = {
-            "socket": selected["cpu"].socket,
-            "memory_type": selected["cpu"].memory_type,
-            "memory_speed": selected["cpu"].memory_speed,
-            "tdp": selected["cpu"].tdp,
-        }
-
-    if selected.get("mb"):
-        payload["mb"] = {
-            "socket": selected["mb"].socket,
-            "form": selected["mb"].form,
-            "memory_type": selected["mb"].memory_type,
-            "memory_frequency": selected["mb"].memory_frequency,
-            "memory_slots": selected["mb"].memory_slots,
-            "m2_slots": selected["mb"].m2_slots,
-            "sata_ports": selected["mb"].sata_ports,
-        }
+    for key, field_names in COMPATIBILITY_FIELD_MAP.items():
+        part = selected.get(key)
+        if not part:
+            continue
+        payload[key] = _extract_part_payload(part, field_names)
 
     if selected.get("ram"):
-        payload["ram"] = {
-            "type": selected["ram"].type,
-            "frequency": selected["ram"].frequency,
-        }
         payload["totals"]["total_memory"] = _as_int(getattr(selected["ram"], "module_count", 1), default=1)
-
-    if selected.get("cooler"):
-        payload["cooler"] = {
-            "type": selected["cooler"].type,
-            "air_height": selected["cooler"].air_height,
-            "water_size": selected["cooler"].water_size,
-        }
-
-    if selected.get("gpu"):
-        payload["gpu"] = {
-            "length": selected["gpu"].length,
-            "tdp": selected["gpu"].tdp,
-        }
-
-    if selected.get("case"):
-        payload["case"] = {
-            "form": selected["case"].form,
-            "gpu_length": selected["case"].gpu_length,
-            "air_height": selected["case"].air_height,
-            "water_size": selected["case"].water_size,
-            "psu_form": selected["case"].psu_form,
-            "storage_2_5": selected["case"].storage_2_5,
-            "storage_3_5": selected["case"].storage_3_5,
-        }
-
-    if selected.get("psu"):
-        payload["psu"] = {
-            "form": selected["psu"].form,
-            "wattage": selected["psu"].wattage,
-        }
 
     if selected.get("storage"):
         qty = _read_quantity(selected_ids, "storage")
@@ -238,11 +356,7 @@ def build_part_list_context(request, part_type):
 
     columns = [{"key": key, "label": label} for key, label in config["columns"]]
     allowed_sort_fields = [col["key"] for col in columns]
-
-    if sort not in allowed_sort_fields:
-        sort = "price" if "price" in allowed_sort_fields else allowed_sort_fields[0]
-    if direction not in {"asc", "desc"}:
-        direction = "asc"
+    sort, direction = _normalize_sort_request(sort, direction, allowed_sort_fields)
 
     model = config["model"]
     base_queryset = model.objects.all()
@@ -251,132 +365,23 @@ def build_part_list_context(request, part_type):
 
     numeric_filters = []
     enum_filters = []
-
-    # Brand filters: generic 'brand' for most parts, and GPU-specific chip/card brands.
-    label_map = {
-        "brand": "品牌",
-        "chip_brand": "芯片品牌",
-        "card_brand": "显卡品牌",
-    }
-    brand_fields = []
-    for field_name in ("brand", "chip_brand", "card_brand"):
-        try:
-            model._meta.get_field(field_name)
-            brand_fields.append(field_name)
-        except Exception:
-            continue
-
-    for field_name in brand_fields:
-        values = list(
-            base_queryset.exclude(**{f"{field_name}__isnull": True})
-            .exclude(**{field_name: ""})
-            .values_list(field_name, flat=True)
-            .distinct()
-            .order_by(field_name)
-        )
-        if not values:
-            continue
-
-        selected_values = request.GET.getlist(field_name)
-        if selected_values:
-            queryset = queryset.filter(**{f"{field_name}__in": selected_values})
-        enum_filters.append(
-            {
-                "field": field_name,
-                "label": label_map.get(field_name, "品牌"),
-                "options": values,
-                "selected": selected_values,
-            }
-        )
-
-    for field_key, label in config["columns"]:
-        try:
-            field_obj = model._meta.get_field(field_key)
-        except Exception:
-            continue
-
-        if isinstance(field_obj, (IntegerField, FloatField, DecimalField)):
-            bounds = base_queryset.aggregate(min_v=Min(field_key), max_v=Max(field_key))
-            db_min = bounds.get("min_v")
-            db_max = bounds.get("max_v")
-            if db_min is None or db_max is None:
-                continue
-
-            min_param = f"{field_key}_min"
-            max_param = f"{field_key}_max"
-            selected_min_raw = (request.GET.get(min_param) or "").strip()
-            selected_max_raw = (request.GET.get(max_param) or "").strip()
-
-            selected_min = None
-            selected_max = None
-            if selected_min_raw != "":
-                try:
-                    selected_min = float(selected_min_raw)
-                    queryset = queryset.filter(**{f"{field_key}__gte": selected_min})
-                except ValueError:
-                    selected_min = None
-            if selected_max_raw != "":
-                try:
-                    selected_max = float(selected_max_raw)
-                    queryset = queryset.filter(**{f"{field_key}__lte": selected_max})
-                except ValueError:
-                    selected_max = None
-
-            current_min = selected_min if selected_min is not None else float(db_min)
-            current_max = selected_max if selected_max is not None else float(db_max)
-
-            numeric_filters.append(
-                {
-                    "field": field_key,
-                    "label": label,
-                    "db_min": db_min,
-                    "db_max": db_max,
-                    "selected_min": selected_min_raw,
-                    "selected_max": selected_max_raw,
-                    "current_min": current_min,
-                    "current_max": current_max,
-                    "step": "1" if isinstance(field_obj, IntegerField) else "0.1",
-                }
-            )
-        elif field_key in search_fields and field_key not in {"name", "brand", "chip_brand", "card_brand"}:
-            values = list(
-                base_queryset.exclude(**{f"{field_key}__isnull": True})
-                .exclude(**{field_key: ""})
-                .values_list(field_key, flat=True)
-                .distinct()
-                .order_by(field_key)
-            )
-            if not values or len(values) > 20:
-                continue
-
-            selected_values = request.GET.getlist(field_key)
-            if selected_values:
-                queryset = queryset.filter(**{f"{field_key}__in": selected_values})
-
-            enum_filters.append(
-                {
-                    "field": field_key,
-                    "label": label,
-                    "options": values,
-                    "selected": selected_values,
-                }
-            )
-
-    if q:
-        query = Q()
-        for field in search_fields:
-            query |= Q(**{f"{field}__icontains": q})
-        queryset = queryset.filter(query)
+    queryset = _apply_brand_filters(request, model, base_queryset, queryset, enum_filters)
+    queryset = _apply_column_filters(
+        request,
+        model,
+        config,
+        base_queryset,
+        queryset,
+        search_fields,
+        numeric_filters,
+        enum_filters,
+    )
+    queryset = _apply_keyword_search(queryset, q, search_fields)
 
     order_by = f"-{sort}" if direction == "desc" else sort
     queryset = queryset.order_by(order_by)
 
-    sort_params = request.GET.copy()
-    sort_params.pop("sort", None)
-    sort_params.pop("dir", None)
-    sort_query_prefix = sort_params.urlencode()
-    if sort_query_prefix:
-        sort_query_prefix += "&"
+    sort_query_prefix = _build_sort_query_prefix(request)
 
     selected_ids = get_session_selection(request)
     selected_qty = _read_quantity(selected_ids, "storage") if part_type == "storage" else 1

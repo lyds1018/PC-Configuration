@@ -31,7 +31,7 @@
             <div class="navbar-auth">
                 {% if user.is_authenticated %}
                     <span class="text-muted">欢迎，{{ user.username }}</span>
-                    <form method="post" action="{% url 'accounts:logout' %}" style="display: inline;">
+                    <form method="post" action="{% url 'accounts:logout' %}" class="inline-form">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{% url 'accounts:login' %}">
                         <button type="submit" class="btn btn-outline">退出</button>

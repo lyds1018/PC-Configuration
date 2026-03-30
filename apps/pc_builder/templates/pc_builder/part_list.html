@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load pc_builder_extras %}
+{% load static %}
 
 {% block title %}{{ title }} 列表 - PC 配置推荐系统{% endblock %}
 
@@ -58,7 +59,7 @@
           </div>
         {% endfor %}
 
-        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+        <div class="filter-actions">
           <button type="submit" class="btn btn-primary">应用筛选</button>
           <a href="{% url 'pc_builder:part_list' part_type %}" class="btn btn-outline">重置</a>
         </div>
@@ -68,12 +69,12 @@
     <section class="part-list-main">
       <!-- Toolbar -->
       <div class="card mb-3">
-        <div class="flex-between" style="flex-wrap: wrap; gap: 1rem;">
+        <div class="flex-between toolbar-row">
           <div>
             <span class="badge badge-primary">{{ items|length }} 条可用数据</span>
           </div>
-          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-            <form method="get" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <div class="toolbar-actions">
+            <form method="get" class="search-form-row">
               <div class="search-input-wrap">
                 <span class="search-input-icon" aria-hidden="true"></span>
                 <input
@@ -111,16 +112,16 @@
                   <th>
                     {% if sort == col.key %}
                       {% if dir == "asc" %}
-                        <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=desc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                          {{ col.label }} <span style="color: var(--primary-color);">▲</span>
+                        <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=desc" class="sort-link">
+                          {{ col.label }} <span class="text-primary">▲</span>
                         </a>
                       {% else %}
-                        <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=asc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                          {{ col.label }} <span style="color: var(--primary-color);">▼</span>
+                        <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=asc" class="sort-link">
+                          {{ col.label }} <span class="text-primary">▼</span>
                         </a>
                       {% endif %}
                     {% else %}
-                      <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=asc" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                      <a href="?{{ sort_query_prefix }}sort={{ col.key }}&dir=asc" class="sort-link">
                         {{ col.label }}
                       </a>
                     {% endif %}
@@ -137,15 +138,14 @@
                   {% endfor %}
                   <td>
                     {% if part_type == "storage" %}
-                      <form action="{% url 'pc_builder:select_part' part_type item.id %}" method="get" style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                      <form action="{% url 'pc_builder:select_part' part_type item.id %}" method="get" class="inline-flex-center-gap-05">
                         <input
                           type="number"
                           name="qty"
                           min="1"
                           max="16"
                           value="{% if selected_id == item.id %}{{ selected_qty }}{% else %}1{% endif %}"
-                          class="form-control"
-                          style="width: 88px;"
+                          class="form-control qty-input"
                         />
                         <button type="submit" class="btn btn-sm btn-primary">{% if selected_id == item.id %}更新{% else %}选择{% endif %}</button>
                         {% if selected_id == item.id %}
@@ -165,7 +165,7 @@
                 </tr>
               {% empty %}
                 <tr>
-                  <td colspan="{{ columns|length|add:'1' }}" class="text-center text-muted" style="padding: 2rem;">
+                  <td colspan="{{ columns|length|add:'1' }}" class="text-center text-muted empty-cell">
                     没有匹配的数据。
                   </td>
                 </tr>
@@ -180,50 +180,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const groups = document.querySelectorAll(".dual-range");
-  groups.forEach((group) => {
-    const minInput = group.querySelector(".range-input-min");
-    const maxInput = group.querySelector(".range-input-max");
-    const hiddenMin = group.querySelector(".range-hidden-min");
-    const hiddenMax = group.querySelector(".range-hidden-max");
-    const valueMin = group.parentElement.querySelector(".range-value-min");
-    const valueMax = group.parentElement.querySelector(".range-value-max");
-    const fill = group.querySelector(".dual-range-fill");
-    const minBound = parseFloat(group.dataset.min);
-    const maxBound = parseFloat(group.dataset.max);
-    const step = parseFloat(group.dataset.step || "1");
-
-    const formatValue = (v) => (step >= 1 ? String(Math.round(v)) : Number(v).toFixed(1));
-    const clamp = () => {
-      let minVal = parseFloat(minInput.value);
-      let maxVal = parseFloat(maxInput.value);
-      if (minVal > maxVal) {
-        if (document.activeElement === minInput) {
-          maxVal = minVal;
-          maxInput.value = maxVal;
-        } else {
-          minVal = maxVal;
-          minInput.value = minVal;
-        }
-      }
-
-      const left = ((minVal - minBound) / (maxBound - minBound)) * 100;
-      const right = ((maxVal - minBound) / (maxBound - minBound)) * 100;
-      fill.style.left = left + "%";
-      fill.style.width = (right - left) + "%";
-
-      hiddenMin.value = minVal;
-      hiddenMax.value = maxVal;
-      valueMin.textContent = formatValue(minVal);
-      valueMax.textContent = formatValue(maxVal);
-    };
-
-    minInput.addEventListener("input", clamp);
-    maxInput.addEventListener("input", clamp);
-    clamp();
-  });
-});
-</script>
+<script src="{% static 'js/pages/part-list.js' %}?v=20260330-pages-1"></script>
 {% endblock %}

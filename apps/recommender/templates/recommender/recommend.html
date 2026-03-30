@@ -51,11 +51,11 @@
       <label class="form-label">返回数量</label>
       <input class="form-control" type="number" name="top_k" min="1" max="10" value="{{ form_data.top_k|default:'3' }}" />
     </div>
-    <div class="form-group" style="grid-column: 1 / -1;">
+    <div class="form-group grid-full">
       <label class="form-label">自由输入</label>
       <textarea class="form-control" name="free_text" rows="3" placeholder="例如：主玩 3A 游戏，画质拉满。">{{ form_data.free_text }}</textarea>
     </div>
-    <div class="form-group" style="grid-column: 1 / -1;">
+    <div class="form-group grid-full">
       <button type="submit" class="btn btn-primary">开始智能推荐</button>
     </div>
   </form>

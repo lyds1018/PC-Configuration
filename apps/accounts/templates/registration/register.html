@@ -3,10 +3,10 @@
 {% block title %}用户注册 - PC 配置推荐系统{% endblock %}
 
 {% block content %}
-<div class="container" style="max-width: 460px;">
+<div class="container auth-container-register">
   <div class="card fade-in">
     <div class="text-center mb-3">
-      <h2 style="font-size: 1.75rem; margin-bottom: 0.5rem;">创建账号</h2>
+      <h2 class="auth-title">创建账号</h2>
       <p class="text-muted">加入我们，开始使用</p>
     </div>
 
@@ -17,12 +17,12 @@
         <label for="id_username" class="form-label">用户名</label>
         {{ form.username }}
         {% if form.username.help_text %}
-          <div class="help text-muted" style="font-size: 0.875rem; margin-top: 0.25rem;">
+          <div class="help text-muted help-text-sm">
             {{ form.username.help_text|striptags }}
           </div>
         {% endif %}
         {% for error in form.username.errors %}
-          <div class="alert alert-error" style="margin-top: 0.5rem; padding: 0.5rem;">
+          <div class="alert alert-error alert-compact">
             {{ error }}
           </div>
         {% endfor %}
@@ -32,12 +32,12 @@
         <label for="id_password1" class="form-label">密码</label>
         {{ form.password1 }}
         {% if form.password1.help_text %}
-          <div class="help text-muted" style="font-size: 0.875rem; margin-top: 0.25rem;">
+          <div class="help text-muted help-text-sm">
             {{ form.password1.help_text|striptags }}
           </div>
         {% endif %}
         {% for error in form.password1.errors %}
-          <div class="alert alert-error" style="margin-top: 0.5rem; padding: 0.5rem;">
+          <div class="alert alert-error alert-compact">
             {{ error }}
           </div>
         {% endfor %}
@@ -47,12 +47,12 @@
         <label for="id_password2" class="form-label">确认密码</label>
         {{ form.password2 }}
         {% if form.password2.help_text %}
-          <div class="help text-muted" style="font-size: 0.875rem; margin-top: 0.25rem;">
+          <div class="help text-muted help-text-sm">
             {{ form.password2.help_text|striptags }}
           </div>
         {% endif %}
         {% for error in form.password2.errors %}
-          <div class="alert alert-error" style="margin-top: 0.5rem; padding: 0.5rem;">
+          <div class="alert alert-error alert-compact">
             {{ error }}
           </div>
         {% endfor %}
@@ -66,13 +66,13 @@
         {% endfor %}
       {% endif %}
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;">
+      <button type="submit" class="btn btn-primary btn-block">
         立即注册
       </button>
     </form>
 
     <div class="text-center mt-3">
-      <a href="{% url 'accounts:login' %}" style="color: var(--primary-color); text-decoration: none; font-weight: 600;">
+      <a href="{% url 'accounts:login' %}" class="auth-link">
         ← 已有账号？返回登录
       </a>
     </div>

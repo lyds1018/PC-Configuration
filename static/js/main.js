@@ -2,17 +2,21 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('PC Configuration System loaded');
+
+    const fadeOutAndRemove = function(element, durationMs) {
+        element.style.transition = `opacity ${durationMs / 1000}s`;
+        element.style.opacity = '0';
+        setTimeout(function() {
+            element.remove();
+        }, durationMs);
+    };
     
     // Auto-hide flash messages after 5 seconds
     // Compatibility result blocks should stay visible until user changes parts.
     const alerts = document.querySelectorAll('.js-auto-hide-alert');
     alerts.forEach(function(alert) {
         setTimeout(function() {
-            alert.style.transition = 'opacity 0.3s';
-            alert.style.opacity = '0';
-            setTimeout(function() {
-                alert.remove();
-            }, 300);
+            fadeOutAndRemove(alert, 300);
         }, 5000);
     });
     

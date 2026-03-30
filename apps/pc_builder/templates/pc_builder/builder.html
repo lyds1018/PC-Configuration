@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load pc_builder_extras %}
+{% load static %}
 
 {% block title %}DIY 配置 - PC 配置推荐系统{% endblock %}
 
@@ -66,15 +67,15 @@
 <div class="card text-center">
   <div class="flex-between">
     <div>
-      <h3 style="margin: 0;">当前总价</h3>
+      <h3 class="heading-reset">当前总价</h3>
     </div>
     <div>
-      <h2 style="margin: 0; color: var(--secondary-color);">￥{{ total_price|floatformat:2 }}</h2>
+      <h2 class="price-emphasis">￥{{ total_price|floatformat:2 }}</h2>
     </div>
   </div>
   {% if selected %}
-    <div style="margin-top: 0.75rem; text-align: right;">
-      <form method="post" action="{% url 'build_history:save_diy_build' %}" style="display: inline;" id="save-diy-build-form">
+    <div class="mt-075 text-right">
+      <form method="post" action="{% url 'build_history:save_diy_build' %}" class="inline-form" id="save-diy-build-form">
         {% csrf_token %}
         <input type="hidden" name="title" id="save-diy-build-title" value="">
         <button type="submit" class="btn btn-primary">保存当前方案</button>
@@ -118,74 +119,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-  (function () {
-    const form = document.getElementById("save-diy-build-form");
-    if (!form) return;
-    const titleInput = document.getElementById("save-diy-build-title");
-
-    form.addEventListener("submit", async function (e) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const defaultName = "DIY方案";
-      if (!window.PCConfig || typeof window.PCConfig.promptDialog !== "function") {
-        const fallback = window.prompt("请输入方案名称：", defaultName);
-        if (fallback === null) return;
-        if (titleInput) titleInput.value = (fallback || "").trim();
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
-        try {
-          const resp = await fetch(form.action, {
-            method: "POST",
-            credentials: "same-origin",
-            headers: {
-              "X-Requested-With": "XMLHttpRequest",
-              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            },
-            body: new URLSearchParams(formData).toString(),
-          });
-          const data = await resp.json();
-          if (data && data.ok) {
-            window.PCConfig?.showNotification?.(data.message || "保存成功", "success");
-          } else {
-            window.PCConfig?.showNotification?.((data && data.message) || "保存失败，请重试。", "error");
-          }
-        } catch (_) {
-          window.PCConfig?.showNotification?.("保存失败，请重试。", "error");
-        } finally {
-          if (submitBtn) submitBtn.disabled = false;
-        }
-        return;
-      }
-      const result = await window.PCConfig.promptDialog("保存方案", defaultName, "给这套配置起个名字");
-      if (!result.confirmed) return;
-      if (titleInput) titleInput.value = (result.value || "").trim();
-      const formData = new FormData(form);
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.disabled = true;
-      try {
-        const resp = await fetch(form.action, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          },
-          body: new URLSearchParams(formData).toString(),
-        });
-        const data = await resp.json();
-        if (data && data.ok) {
-          window.PCConfig.showNotification(data.message || "保存成功", "success");
-        } else {
-          window.PCConfig.showNotification((data && data.message) || "保存失败，请重试。", "error");
-        }
-      } catch (_) {
-        window.PCConfig.showNotification("保存失败，请重试。", "error");
-      } finally {
-        if (submitBtn) submitBtn.disabled = false;
-      }
-    });
-  })();
-</script>
+<script src="{% static 'js/pages/builder.js' %}?v=20260330-pages-1"></script>
 {% endblock %}

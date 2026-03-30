@@ -15,9 +15,7 @@ def build_pc(request):
 
 @login_required
 def select_part(request, part_type, pk):
-    ok = select_part_service(request, part_type, pk)
-    if not ok:
-        return redirect("pc_builder:build_pc")
+    select_part_service(request, part_type, pk)
     return redirect("pc_builder:build_pc")
 
 
