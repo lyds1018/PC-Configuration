@@ -82,6 +82,21 @@
     0%, 49% { opacity: 1; }
     50%, 100% { opacity: 0; }
   }
+
+  .recommend-table .col-plan {
+    min-width: 420px;
+    width: 38%;
+  }
+
+  .recommend-table .col-review {
+    width: 24%;
+    min-width: 260px;
+  }
+
+  .recommend-table .plan-line {
+    white-space: normal;
+    word-break: break-word;
+  }
 </style>
 {% endblock %}
 
@@ -93,11 +108,11 @@
 
 <div class="agent-shell">
   <div class="card agent-console" id="agent-thinking-card">
-    <div class="card-header">智能体思考中</div>
+    <div class="card-header" id="agent-step-header">读取预算、场景与品牌约束中</div>
     <ul class="agent-log" id="agent-log">
-      <li class="agent-log-item">读取预算、场景与品牌约束...</li>
-      <li class="agent-log-item">从候选池筛选兼容组合...</li>
-      <li class="agent-log-item">计算性能分数与性价比...</li>
+      <li class="agent-log-item">读取预算、场景与品牌约束中...</li>
+      <li class="agent-log-item">从候选池筛选兼容组合中...</li>
+      <li class="agent-log-item">计算性能分数与性价比中...</li>
       <li class="agent-log-item">调用智能体思考中...</li>
     </ul>
     <div class="agent-progress">
@@ -122,11 +137,13 @@
     const resultStage = document.getElementById("agent-result-stage");
     const thinkingCard = document.getElementById("agent-thinking-card");
     const subtitleEl = document.getElementById("result-subtitle");
+    const stepHeaderEl = document.getElementById("agent-step-header");
     const logItems = Array.from(document.querySelectorAll("#agent-log .agent-log-item"));
     const progressFill = document.getElementById("agent-progress-fill");
     const total = logItems.length || 1;
     const query = window.location.search || "";
     const dataUrl = "{% url 'recommender:recommend_result_data' %}" + query;
+    const workloadLabelMap = { game: "游戏", office: "办公", productivity: "生产力" };
     let payload = null;
     let requestStarted = false;
 
@@ -162,36 +179,39 @@
       const agentReason = payload.agent_reason || "当前未启用智能体推荐。";
       const metaReason = meta.reason || "";
 
-      const rowsHtml = rows.map((row) => `
+      const rowsHtml = rows.map((row, idx) => `
         <tr>
-          <td>
-            <div><strong>CPU：</strong>${esc(row.cpu)}</div>
-            <div><strong>主板：</strong>${esc(row.mb)}</div>
-            <div><strong>内存：</strong>${esc(row.ram)}</div>
-            <div><strong>硬盘：</strong>${esc(row.storage)}</div>
-            <div><strong>显卡：</strong>${esc(row.gpu)}</div>
-            <div><strong>机箱：</strong>${esc(row.case)}</div>
-            <div><strong>电源：</strong>${esc(row.psu)}</div>
-            <div><strong>散热：</strong>${esc(row.cooler)}</div>
+          <td class="col-plan">
+            <div class="plan-line"><strong>CPU：</strong>${esc(row.cpu)}</div>
+            <div class="plan-line"><strong>主板：</strong>${esc(row.mb)}</div>
+            <div class="plan-line"><strong>内存：</strong>${esc(row.ram)}</div>
+            <div class="plan-line"><strong>硬盘：</strong>${esc(row.storage)}</div>
+            <div class="plan-line"><strong>显卡：</strong>${esc(row.gpu)}</div>
+            <div class="plan-line"><strong>机箱：</strong>${esc(row.case)}</div>
+            <div class="plan-line"><strong>电源：</strong>${esc(row.psu)}</div>
+            <div class="plan-line"><strong>散热：</strong>${esc(row.cooler)}</div>
           </td>
           <td>￥${Number(row.total_price || 0).toFixed(2)}</td>
           <td>${Number(row.total_score_100 || 0).toFixed(1)}/100</td>
           <td>${Number(row.combo_value_100 || 0).toFixed(1)}/100</td>
-          <td>${esc(row.reason || "—")}</td>
+          <td class="col-review">${esc(row.reason || "—")}</td>
+          <td><button type="button" class="btn btn-sm btn-primary js-save-combo" data-save-index="${idx + 1}">保存方案</button></td>
         </tr>
       `).join("");
+
+      const workloadLabel = workloadLabelMap[meta.workload] || (meta.workload || "");
 
       resultStage.innerHTML = `
         <div class="card">
           <div class="flex-between" style="gap: 1rem; flex-wrap: wrap;">
-            <div class="text-muted">场景：${esc(meta.workload || "")} / 预算区间：${esc(meta.budget_min || "")} - ${esc(meta.budget_max || "")} / 候选池：${esc(meta.candidate_count || 0)}</div>
+            <div class="text-muted">场景：${esc(workloadLabel)} / 预算区间：${esc(meta.budget_min || "")} - ${esc(meta.budget_max || "")} / 候选池：${esc(meta.candidate_count || 0)}</div>
             <a href="{% url 'recommender:recommend_page' %}" class="btn btn-outline">返回修改条件</a>
           </div>
         </div>
         ${metaReason ? `<div class="alert alert-warning">${esc(metaReason)}</div>` : ""}
         ${rows.length ? `
           <div class="card">
-            <div class="card-header">总体建议</div>
+            <div class="card-header">智能体建议</div>
             ${agentEnabled
               ? `<div class="typewriter-wrap"><span id="agent-summary-text"></span><span class="typewriter-cursor" id="agent-summary-cursor">|</span></div>`
               : `<div class="text-muted">${esc(agentReason)}</div>`
@@ -200,14 +220,15 @@
           <div class="card">
             <div class="card-header">推荐结果（${rows.length} 套）</div>
             <div class="table-responsive">
-              <table class="table">
+              <table class="table recommend-table">
                 <thead>
                   <tr>
-                    <th>方案</th>
+                    <th class="col-plan">方案</th>
                     <th>总价</th>
                     <th>总分</th>
                     <th>性价比</th>
-                    <th>智能体评价</th>
+                    <th class="col-review">智能体评价</th>
+                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>${rowsHtml}</tbody>
@@ -218,6 +239,61 @@
       `;
       resultStage.classList.add("ready");
       if (agentEnabled) startTypewriter(summary);
+
+      const getCookie = (name) => {
+        const cookie = document.cookie
+          .split(";")
+          .map((v) => v.trim())
+          .find((v) => v.startsWith(name + "="));
+        return cookie ? decodeURIComponent(cookie.split("=", 2)[1]) : "";
+      };
+      const csrfToken = getCookie("csrftoken");
+      const saveUrlPattern = "{% url 'build_history:save_recommend_combo' 999999 %}";
+
+      resultStage.querySelectorAll(".js-save-combo").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const idx = btn.dataset.saveIndex;
+          if (!idx) return;
+          const defaultName = `智能推荐 方案 #${idx}`;
+          let title = "";
+          if (window.PCConfig && typeof window.PCConfig.promptDialog === "function") {
+            const result = await window.PCConfig.promptDialog("保存方案", defaultName, "给这套推荐方案起个名字");
+            if (!result.confirmed) return;
+            title = (result.value || "").trim();
+          } else {
+            const inputName = window.prompt("请输入方案名称：", defaultName);
+            if (inputName === null) return;
+            title = (inputName || "").trim();
+          }
+          btn.disabled = true;
+          const url = saveUrlPattern.replace("999999", idx);
+          fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "X-CSRFToken": csrfToken,
+              "X-Requested-With": "XMLHttpRequest",
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            },
+            body: new URLSearchParams({ title }).toString(),
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data && data.ok) {
+                btn.textContent = "已保存";
+                btn.classList.remove("btn-primary");
+                btn.classList.add("btn-outline");
+              } else {
+                btn.disabled = false;
+                alert((data && data.message) || "保存失败，请重试。");
+              }
+            })
+            .catch(() => {
+              btn.disabled = false;
+              alert("保存失败，请重试。");
+            });
+        });
+      });
     };
 
     const startRequest = () => {
@@ -250,6 +326,9 @@
         el.classList.toggle("active", i === idx && !done);
         if (done && i <= idx) el.classList.add("done");
       });
+      if (stepHeaderEl && logItems[idx]) {
+        stepHeaderEl.textContent = (logItems[idx].textContent || "智能体思考中").replace(/\.\.\.$/, "");
+      }
     };
 
     const setProgress = (percent) => {

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load pc_builder_extras %}
+
+{% block title %}装机历史 - PC 配置推荐系统{% endblock %}
+
+{% block content %}
+<style>
+  .history-summary-col {
+    width: 44%;
+    min-width: 420px;
+  }
+
+  .history-action-col {
+    width: 140px;
+    min-width: 140px;
+    text-align: center;
+    white-space: nowrap;
+  }
+</style>
+
+<div class="page-header">
+  <h1 class="page-title">装机历史</h1>
+  <p class="page-subtitle">查看并管理你的配置方案</p>
+</div>
+
+<div class="card">
+  <div class="card-header">已保存方案（{{ histories|length }}）</div>
+  {% if histories %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>来源</th>
+            <th>总价</th>
+            <th>保存时间</th>
+            <th class="history-summary-col">方案摘要</th>
+            <th class="history-action-col">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in histories %}
+            <tr>
+              <td>{{ item.title|default:"未命名方案" }}</td>
+              <td>{{ item.get_source_display }}</td>
+              <td>￥{{ item.total_price|floatformat:2 }}</td>
+              <td>{{ item.created_at|date:"Y-m-d H:i:s" }}</td>
+              <td class="history-summary-col">
+                {% if item.payload.parts %}
+                  {% for key in part_order %}
+                    {% with part=item.payload.parts|get_item:key %}
+                      {% if part %}
+                        {% if part.name %}
+                          <div><strong>{{ part_labels|get_item:key|default:key }}：</strong>{{ part.name }}</div>
+                        {% else %}
+                          <div><strong>{{ part_labels|get_item:key|default:key }}：</strong>{{ part }}</div>
+                        {% endif %}
+                      {% endif %}
+                    {% endwith %}
+                  {% endfor %}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+                {% if item.payload.reason %}
+                  <div class="text-muted mt-1">评价：{{ item.payload.reason }}</div>
+                {% endif %}
+              </td>
+              <td class="history-action-col">
+                <a href="{% url 'build_history:history_detail' item.id %}" class="btn btn-sm btn-outline">查看详情</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="text-muted">你还没有保存任何方案。</div>
+  {% endif %}
+</div>
+{% endblock %}

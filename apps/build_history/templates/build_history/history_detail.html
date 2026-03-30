@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load pc_builder_extras %}
+
+{% block title %}方案详情 - PC 配置推荐系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">方案详情</h1>
+  <p class="page-subtitle">{{ history.title|default:"未命名方案" }}</p>
+</div>
+
+<div class="card">
+  <div class="flex-between" style="gap: 1rem; flex-wrap: wrap;">
+    <div>
+      <div><strong>来源：</strong>{{ history.get_source_display }}</div>
+      <div><strong>保存时间：</strong>{{ history.created_at|date:"Y-m-d H:i:s" }}</div>
+    </div>
+    <div>
+      <h2 style="margin: 0; color: var(--secondary-color);">￥{{ history.total_price|floatformat:2 }}</h2>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">配件清单</div>
+  {% if history.payload.parts %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>配件类型</th>
+            <th>型号</th>
+            <th>价格</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for key in part_order %}
+            {% with part=history.payload.parts|get_item:key %}
+              {% if part %}
+                <tr>
+                  <td>{{ part_labels|get_item:key|default:key }}</td>
+                  {% if part.name %}
+                    <td>{{ part.name }}</td>
+                    <td>￥{{ part.price|default:"0"|floatformat:2 }}</td>
+                  {% else %}
+                    <td>{{ part }}</td>
+                    <td>—</td>
+                  {% endif %}
+                </tr>
+              {% endif %}
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="text-muted">暂无配件详情。</div>
+  {% endif %}
+</div>
+
+{% if history.payload.reason %}
+  <div class="card">
+    <div class="card-header">智能体评价</div>
+    <div>{{ history.payload.reason }}</div>
+  </div>
+{% endif %}
+
+<div class="flex-between" style="margin-top: 1rem; gap: 0.75rem; flex-wrap: wrap;">
+  <a href="{% url 'build_history:history_list' %}" class="btn btn-outline">返回历史列表</a>
+  <form method="post" action="{% url 'build_history:delete_history' history.id %}" id="delete-history-form">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">删除方案</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const form = document.getElementById("delete-history-form");
+    if (!form) return;
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      if (!window.PCConfig || typeof window.PCConfig.confirmDialog !== "function") {
+        if (window.confirm("确认删除这条历史方案吗？")) form.submit();
+        return;
+      }
+      const result = await window.PCConfig.confirmDialog("删除方案", "确认删除这条历史方案吗？");
+      if (result.confirmed) form.submit();
+    });
+  })();
+</script>
+{% endblock %}

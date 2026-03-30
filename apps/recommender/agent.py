@@ -3,8 +3,8 @@ import os
 from typing import Dict, Mapping, Sequence
 
 
-KIMI_BASE_URL = "https://api.moonshot.cn/v1"
-DEFAULT_MODEL = "kimi-k2.5"
+BASE_URL = "https://api.moonshot.cn/v1"
+MODEL = "kimi-k2"
 
 
 def _safe_float(value) -> float:
@@ -99,7 +99,7 @@ def run_agent_recommendation(
     if not recommendations:
         return {"enabled": False, "reason": "暂无候选组合，无法进行智能体分析。"}
 
-    model = os.getenv("KIMI_MODEL", "").strip() or DEFAULT_MODEL
+    model = MODEL
     prompt = build_agent_prompt(user_text, form_data, recommendations)
     try:
         from openai import OpenAI
@@ -107,7 +107,7 @@ def run_agent_recommendation(
         return {"enabled": False, "reason": "未安装 openai SDK，已回退规则推荐。"}
 
     try:
-        client = OpenAI(api_key=api_key, base_url=KIMI_BASE_URL)
+        client = OpenAI(api_key=api_key, base_url=BASE_URL)
         completion = client.chat.completions.create(
             model=model,
             messages=[

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "accounts",
     "pc_builder",
     "recommender",
+    "build_history",
 ]
 
 MIDDLEWARE = [

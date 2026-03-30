@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
     
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260326-title-center-1">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260330-modal-1">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -24,13 +24,18 @@
             <ul class="navbar-menu">
                 <li><a href="{% url 'pc_builder:build_pc' %}">DIY装机</a></li>
                 <li><a href="{% url 'recommender:recommend_page' %}">智能推荐</a></li>
+                <li><a href="{% url 'build_history:history_list' %}">装机历史</a></li>
                 
             </ul>
             
             <div class="navbar-auth">
                 {% if user.is_authenticated %}
                     <span class="text-muted">欢迎，{{ user.username }}</span>
-                    <a href="{% url 'accounts:logout' %}" class="btn btn-outline">退出</a>
+                    <form method="post" action="{% url 'accounts:logout' %}" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'accounts:login' %}">
+                        <button type="submit" class="btn btn-outline">退出</button>
+                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="btn btn-outline">登录</a>
                     <a href="{% url 'accounts:register' %}" class="btn btn-primary">注册</a>
@@ -57,7 +62,7 @@
     </main>
 
     <!-- JavaScript -->
-    <script src="{% static 'js/main.js' %}?v=20260325-compat-persist-2"></script>
+    <script src="{% static 'js/main.js' %}?v=20260330-modal-1"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

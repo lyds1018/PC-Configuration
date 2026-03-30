@@ -164,6 +164,11 @@ def recommend_result_data(request):
             }
         )
 
+    request.session["recommender_last_rows"] = rows
+    request.session["recommender_last_agent_summary"] = (
+        str(agent_result.get("summary", "")).strip() if isinstance(agent_result, dict) else ""
+    )
+
     return JsonResponse(
         {
             "meta": meta,
