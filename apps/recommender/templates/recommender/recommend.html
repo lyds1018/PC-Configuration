@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}智能推荐 - PC 配置推荐系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">智能推荐</h1>
+  <p class="page-subtitle">基于兼容检测与性能评分生成推荐组合</p>
+</div>
+
+<div class="card">
+  <div class="card-header">推荐条件</div>
+  <form method="post" class="form-row">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">最低预算（元）</label>
+      <input class="form-control" type="number" step="1" min="0" name="budget_min" value="{{ form_data.budget_min }}" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">最高预算（元）</label>
+      <input class="form-control" type="number" step="1" min="0" name="budget_max" value="{{ form_data.budget_max }}" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">场景</label>
+      <select class="form-select" name="workload">
+        <option value="game" {% if form_data.workload == "game" %}selected{% endif %}>游戏</option>
+        <option value="office" {% if form_data.workload == "office" %}selected{% endif %}>办公</option>
+        <option value="productivity" {% if form_data.workload == "productivity" %}selected{% endif %}>生产力</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">CPU品牌限制</label>
+      <select class="form-select" name="cpu_brand">
+        <option value="">不限</option>
+        {% for brand in cpu_brands %}
+          <option value="{{ brand }}" {% if form_data.cpu_brand == brand %}selected{% endif %}>{{ brand }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">GPU品牌限制</label>
+      <select class="form-select" name="gpu_brand">
+        <option value="">不限</option>
+        {% for brand in gpu_brands %}
+          <option value="{{ brand }}" {% if form_data.gpu_brand == brand %}selected{% endif %}>{{ brand }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">返回数量</label>
+      <input class="form-control" type="number" name="top_k" min="1" max="10" value="{{ form_data.top_k|default:'3' }}" />
+    </div>
+    <div class="form-group" style="grid-column: 1 / -1;">
+      <label class="form-label">自由输入（可选）</label>
+      <textarea class="form-control" name="free_text" rows="3" placeholder="例如：预算 10000 到 15000，主要玩 3A 游戏，优先 AMD CPU 和 NVIDIA 显卡">{{ form_data.free_text }}</textarea>
+    </div>
+    <div class="form-group" style="grid-column: 1 / -1;">
+      <button type="submit" class="btn btn-primary">生成推荐</button>
+    </div>
+  </form>
+</div>
+
+{% if meta.reason %}
+  <div class="alert alert-warning">{{ meta.reason }}</div>
+{% endif %}
+
+{% if recommendations %}
+  <div class="card">
+    <div class="card-header">智能体推荐</div>
+    {% if agent_result.enabled %}
+      <div class="mb-2"><strong>模型：</strong>{{ agent_result.model }}</div>
+      <div class="mb-2"><strong>总体建议：</strong>{{ agent_result.summary }}</div>
+      {% if agent_result.choices %}
+        <ul class="mb-0">
+          {% for choice in agent_result.choices %}
+            <li>
+              推荐{{ forloop.counter }}：方案 #{{ choice.combo_index }}。
+              {% if choice.reason %}{{ choice.reason }}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="text-muted">智能体未返回结构化推荐，当前保留规则推荐结果。</div>
+      {% endif %}
+    {% else %}
+      <div class="text-muted">{{ agent_result.reason|default:"当前未启用智能体推荐。" }}</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">推荐结果（{{ recommendations|length }} 套）</div>
+    <div class="text-muted mb-2">
+      场景：{{ meta.workload }} / 预算区间：{{ meta.budget_min }} - {{ meta.budget_max }} / 候选池：{{ meta.candidate_count }}
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>方案</th>
+            <th>总价</th>
+            <th>总分</th>
+            <th>性价比</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recommendations %}
+            <tr>
+              <td>
+                <div><strong>CPU：</strong>{{ item.parts.cpu.name }}</div>
+                <div><strong>主板：</strong>{{ item.parts.mb.name }}</div>
+                <div><strong>内存：</strong>{{ item.parts.ram.name }}</div>
+                <div><strong>硬盘：</strong>{{ item.parts.storage.name }}</div>
+                <div><strong>显卡：</strong>{{ item.parts.gpu.name }}</div>
+                <div><strong>机箱：</strong>{{ item.parts.case.name }}</div>
+                <div><strong>电源：</strong>{{ item.parts.psu.name }}</div>
+                <div><strong>散热：</strong>{{ item.parts.cooler.name }}</div>
+              </td>
+              <td>￥{{ item.total_price|floatformat:2 }}</td>
+              <td>{{ item.scores.total_score_100|floatformat:1 }}/100</td>
+              <td>{{ item.combo_value_100|floatformat:1 }}/100</td>
+              <td>{{ item.reason }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

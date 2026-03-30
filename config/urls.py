@@ -12,6 +12,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls", namespace="accounts")),
     path("pc-builder/", include("pc_builder.urls", namespace="pc_builder")),
+    path("recommender/", include("recommender.urls", namespace="recommender")),
 ]
 
 # Serve media files in development

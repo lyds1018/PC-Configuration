@@ -18,6 +18,7 @@
         <tr>
           <th>配件类型</th>
           <th>操作</th>
+          <th>型号</th>
           <th>价格</th>
         </tr>
       </thead>
@@ -31,9 +32,13 @@
               <a class="btn btn-primary" href="{% url 'pc_builder:part_list' item.key %}">
                 选择 {{ item.label }}
               </a>
+            </td>
+            <td>
               {% with chosen=selected|get_item:item.key %}
                 {% if chosen %}
-                  <span class="text-muted ml-2">已选：{{ chosen.name }}{% if item.key == "storage" %} x{{ storage_qty }}{% endif %}</span>
+                  <span class="text-muted">{{ chosen.name }}{% if item.key == "storage" %} x{{ storage_qty }}{% endif %}</span>
+                {% else %}
+                  <span class="text-muted">—</span>
                 {% endif %}
               {% endwith %}
             </td>
