@@ -36,6 +36,8 @@ PARTS_CONFIG = {
         "model": Gpu,
         "columns": [
             ("name", "型号"),
+            ("chip_brand", "芯片品牌"),
+            ("card_brand", "显卡品牌"),
             ("vram_size", "显存(GB)"),
             ("length", "长度(mm)"),
             ("tdp", "TDP(W)"),
@@ -43,7 +45,7 @@ PARTS_CONFIG = {
             ("compute_score", "计算性能"),
             ("price", "价格(￥)"),
         ],
-        "search_fields": ["name", "brand"],
+        "search_fields": ["name", "chip_brand", "card_brand"],
     },
     "mb": {
         "title": "主板",

@@ -26,7 +26,8 @@ class Cpu(models.Model):
 
 class Gpu(models.Model):
     name = models.TextField()
-    brand = models.TextField(null=True)
+    chip_brand = models.TextField(null=True)
+    card_brand = models.TextField(null=True)
     price = models.FloatField()
     length = models.FloatField(null=True)
     tdp = models.IntegerField(null=True)

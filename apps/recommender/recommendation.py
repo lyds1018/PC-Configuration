@@ -21,7 +21,7 @@ WORKLOAD_TEXT_RULES = {
 }
 
 KNOWN_CPU_BRANDS = ("AMD", "英特尔", "INTEL")
-KNOWN_GPU_BRANDS = ("NVIDIA", "英伟达", "AMD", "INTEL")
+KNOWN_GPU_CARD_BRANDS = ("华硕", "微星", "技嘉", "七彩虹", "影驰", "蓝宝石")
 
 
 @dataclass
@@ -30,7 +30,8 @@ class RecommendationRequest:
     budget_max: float = 0.0
     workload: str = WORKLOAD_GAME
     cpu_brand: str = ""
-    gpu_brand: str = ""
+    gpu_chip_brand: str = ""
+    gpu_card_brand: str = ""
     free_text: str = ""
     top_k: int = 3
 
@@ -98,35 +99,38 @@ def parse_user_preferences(free_text: str) -> Dict[str, str]:
         budget_max = numbers[0]
 
     cpu_brand = ""
-    gpu_brand = ""
+    gpu_chip_brand = ""
+    gpu_card_brand = ""
     upper_text = text.upper()
-    for brand in KNOWN_CPU_BRANDS:
-        if brand in upper_text or brand in text:
-            if brand in {"NVIDIA", "英伟达"}:
-                gpu_brand = "NVIDIA"
-            else:
-                cpu_brand = _normalize_brand(brand)
-            break
-
     if "NVIDIA" in upper_text or "英伟达" in text:
-        gpu_brand = "NVIDIA"
+        gpu_chip_brand = "NVIDIA"
     elif "AMD" in upper_text:
-        if not gpu_brand:
-            gpu_brand = "AMD"
+        if not gpu_chip_brand:
+            gpu_chip_brand = "AMD"
         if not cpu_brand:
             cpu_brand = "AMD"
     elif "INTEL" in upper_text or "英特尔" in text:
         if not cpu_brand:
             cpu_brand = "英特尔"
-        if not gpu_brand:
-            gpu_brand = "INTEL"
+
+    if not cpu_brand:
+        for brand in KNOWN_CPU_BRANDS:
+            if brand in upper_text or brand in text:
+                cpu_brand = _normalize_brand(brand)
+                break
+
+    for card_brand in KNOWN_GPU_CARD_BRANDS:
+        if card_brand in text:
+            gpu_card_brand = card_brand
+            break
 
     return {
         "workload": workload,
         "budget_min": budget_min,
         "budget_max": budget_max,
         "cpu_brand": cpu_brand,
-        "gpu_brand": gpu_brand,
+        "gpu_chip_brand": gpu_chip_brand,
+        "gpu_card_brand": gpu_card_brand,
     }
 
 
@@ -177,6 +181,20 @@ def _brand_filter(queryset, brand: str):
     if normalized == "英特尔":
         return queryset.filter(brand__icontains="英特尔") | queryset.filter(brand__icontains="Intel")
     return queryset.filter(brand__icontains=normalized)
+
+
+def _gpu_chip_brand_filter(queryset, chip_brand: str):
+    normalized = _normalize_brand(chip_brand)
+    if not normalized:
+        return queryset
+    return queryset.filter(chip_brand__iexact=normalized)
+
+
+def _gpu_card_brand_filter(queryset, card_brand: str):
+    text = (card_brand or "").strip()
+    if not text:
+        return queryset
+    return queryset.filter(card_brand__icontains=text)
 
 
 def _shortlist(queryset, limit: int):
@@ -232,7 +250,8 @@ def recommend_builds(params: RecommendationRequest) -> Dict[str, object]:
     top_k = max(1, _to_int(params.top_k, 3))
 
     cpu_qs = _brand_filter(Cpu.objects.all(), params.cpu_brand)
-    gpu_qs = _brand_filter(Gpu.objects.all(), params.gpu_brand)
+    gpu_qs = _gpu_chip_brand_filter(Gpu.objects.all(), params.gpu_chip_brand)
+    gpu_qs = _gpu_card_brand_filter(gpu_qs, params.gpu_card_brand)
 
     cpus = _shortlist(cpu_qs, 12)
     mbs = _shortlist(Mb.objects.all(), 15)

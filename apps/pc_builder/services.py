@@ -252,30 +252,42 @@ def build_part_list_context(request, part_type):
     numeric_filters = []
     enum_filters = []
 
-    # Always provide brand checkbox filter in sidebar when model has brand field.
-    try:
-        model._meta.get_field("brand")
-        brand_values = list(
-            base_queryset.exclude(brand__isnull=True)
-            .exclude(brand="")
-            .values_list("brand", flat=True)
+    # Brand filters: generic 'brand' for most parts, and GPU-specific chip/card brands.
+    label_map = {
+        "brand": "品牌",
+        "chip_brand": "芯片品牌",
+        "card_brand": "显卡品牌",
+    }
+    brand_fields = []
+    for field_name in ("brand", "chip_brand", "card_brand"):
+        try:
+            model._meta.get_field(field_name)
+            brand_fields.append(field_name)
+        except Exception:
+            continue
+
+    for field_name in brand_fields:
+        values = list(
+            base_queryset.exclude(**{f"{field_name}__isnull": True})
+            .exclude(**{field_name: ""})
+            .values_list(field_name, flat=True)
             .distinct()
-            .order_by("brand")
+            .order_by(field_name)
         )
-        if brand_values:
-            selected_brands = request.GET.getlist("brand")
-            if selected_brands:
-                queryset = queryset.filter(brand__in=selected_brands)
-            enum_filters.append(
-                {
-                    "field": "brand",
-                    "label": "品牌",
-                    "options": brand_values,
-                    "selected": selected_brands,
-                }
-            )
-    except Exception:
-        pass
+        if not values:
+            continue
+
+        selected_values = request.GET.getlist(field_name)
+        if selected_values:
+            queryset = queryset.filter(**{f"{field_name}__in": selected_values})
+        enum_filters.append(
+            {
+                "field": field_name,
+                "label": label_map.get(field_name, "品牌"),
+                "options": values,
+                "selected": selected_values,
+            }
+        )
 
     for field_key, label in config["columns"]:
         try:
@@ -326,7 +338,7 @@ def build_part_list_context(request, part_type):
                     "step": "1" if isinstance(field_obj, IntegerField) else "0.1",
                 }
             )
-        elif field_key in search_fields and field_key not in {"name", "brand"}:
+        elif field_key in search_fields and field_key not in {"name", "brand", "chip_brand", "card_brand"}:
             values = list(
                 base_queryset.exclude(**{f"{field_key}__isnull": True})
                 .exclude(**{field_key: ""})

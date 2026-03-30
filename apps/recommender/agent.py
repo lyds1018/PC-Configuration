@@ -44,7 +44,7 @@ def build_agent_prompt(
         "budget_max": form_data.get("budget_max", ""),
         "workload": form_data.get("workload", ""),
         "cpu_brand": form_data.get("cpu_brand", ""),
-        "gpu_brand": form_data.get("gpu_brand", ""),
+        "gpu_chip_brand": form_data.get("gpu_chip_brand", ""),
         "top_k": form_data.get("top_k", 3),
     }
     combos = [_combo_to_text(i + 1, item) for i, item in enumerate(recommendations)]
