@@ -1,10 +1,12 @@
 from collections import defaultdict
 from datetime import timedelta
+import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.storage import default_storage
 from django.db.models import F, Q
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -43,6 +45,8 @@ SORT_TO_ORDERING = {
     FORUM_SORT_LIKES: ["-like_count", "-published_at", "-created_at"],
     FORUM_SORT_FAVORITES: ["-favorite_count", "-published_at", "-created_at"],
 }
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+MAX_EDITOR_IMAGE_SIZE = 5 * 1024 * 1024
 
 
 def _redirect_next(request, default_tab=FORUM_TAB_ALL):
@@ -53,7 +57,7 @@ def _redirect_next(request, default_tab=FORUM_TAB_ALL):
 
 
 def _parse_tag_names(raw_tags):
-    chunks = [chunk.strip() for chunk in (raw_tags or "").replace("，", ",").split(",")]
+    chunks = re.findall(r"[#＃]([^\s#＃,，]+)", raw_tags or "")
     deduped = []
     seen = set()
     for name in chunks:
@@ -65,6 +69,28 @@ def _parse_tag_names(raw_tags):
         seen.add(key)
         deduped.append(name[:30])
     return deduped[:8]
+
+
+def _extract_post_form(request):
+    return {
+        "title": (request.POST.get("title") or "").strip(),
+        "section": (request.POST.get("section") or "").strip(),
+        "content": (request.POST.get("content") or "").strip(),
+        "raw_tags": (request.POST.get("tags") or "").strip(),
+    }
+
+
+def _validate_post_form(form):
+    if not form["title"] or not form["content"]:
+        return "标题和正文不能为空。"
+    if form["section"] not in dict(ForumPost.SECTION_CHOICES):
+        return "请选择正确的版块。"
+    if form["raw_tags"] and not re.fullmatch(
+        r"\s*[#＃][^\s#＃,，]+(?:\s*[，,]\s*[#＃][^\s#＃,，]+)*\s*",
+        form["raw_tags"],
+    ):
+        return "标签格式应为 #内存，#溢价。"
+    return ""
 
 
 def _list_post_queryset(tab, q, sort):
@@ -176,6 +202,17 @@ def forum_page(request):
                 "favorites": favorites,
             }
         )
+    elif tab == FORUM_TAB_CREATE:
+        editing_post_id = request.GET.get("edit")
+        if editing_post_id:
+            post = ForumPost.objects.prefetch_related("tags").filter(id=editing_post_id).first()
+            if not post:
+                messages.error(request, "要编辑的帖子不存在。")
+            elif not (request.user.is_staff or post.author_id == request.user.id):
+                messages.error(request, "无权限编辑该帖子。")
+            else:
+                context["editing_post"] = post
+                context["editing_tags"] = "，".join(f"#{tag.name}" for tag in post.tags.all())
 
     elif tab == FORUM_TAB_MODERATION and request.user.is_staff:
         pending_posts = (
@@ -202,31 +239,85 @@ def create_post(request):
     if request.method != "POST":
         return redirect("forum:forum_page")
 
-    title = (request.POST.get("title") or "").strip()
-    section = (request.POST.get("section") or "").strip()
-    content = (request.POST.get("content") or "").strip()
-    raw_tags = request.POST.get("tags") or ""
-
-    if not title or not content:
-        messages.error(request, "标题和正文不能为空。")
-        return _redirect_next(request, default_tab=FORUM_TAB_CREATE)
-    if section not in dict(ForumPost.SECTION_CHOICES):
-        messages.error(request, "请选择正确的版块。")
+    form = _extract_post_form(request)
+    form_error = _validate_post_form(form)
+    if form_error:
+        messages.error(request, form_error)
         return _redirect_next(request, default_tab=FORUM_TAB_CREATE)
 
     post = ForumPost.objects.create(
         author=request.user,
-        title=title[:200],
-        section=section,
-        content=content,
+        title=form["title"][:200],
+        section=form["section"],
+        content=form["content"],
         status=ForumPost.STATUS_PENDING,
     )
 
-    for tag_name in _parse_tag_names(raw_tags):
+    for tag_name in _parse_tag_names(form["raw_tags"]):
         tag, _ = ForumTag.objects.get_or_create(name=tag_name)
         post.tags.add(tag)
 
     messages.success(request, "帖子已提交，等待管理员审核。")
+    return redirect("forum:forum_page")
+
+
+@login_required
+def edit_post(request, post_id):
+    if request.method != "POST":
+        return redirect("forum:forum_page")
+
+    post = get_object_or_404(ForumPost.objects.prefetch_related("tags"), id=post_id)
+    if not (request.user.is_staff or post.author_id == request.user.id):
+        return HttpResponseForbidden("无权限")
+
+    form = _extract_post_form(request)
+    form_error = _validate_post_form(form)
+    if form_error:
+        messages.error(request, form_error)
+        return redirect(f"{reverse('forum:forum_page')}?tab=create&edit={post_id}")
+
+    post.title = form["title"][:200]
+    post.section = form["section"]
+    post.content = form["content"]
+    post.status = ForumPost.STATUS_PENDING
+    post.reviewed_by = None
+    post.reviewed_at = None
+    post.reject_reason = ""
+    post.published_at = None
+    post.save(
+        update_fields=[
+            "title",
+            "section",
+            "content",
+            "status",
+            "reviewed_by",
+            "reviewed_at",
+            "reject_reason",
+            "published_at",
+            "updated_at",
+        ]
+    )
+
+    post.tags.clear()
+    for tag_name in _parse_tag_names(form["raw_tags"]):
+        tag, _ = ForumTag.objects.get_or_create(name=tag_name)
+        post.tags.add(tag)
+
+    messages.success(request, "帖子已更新，并重新进入审核队列。")
+    return redirect("forum:forum_page")
+
+
+@login_required
+def delete_post(request, post_id):
+    if request.method != "POST":
+        return redirect("forum:forum_page")
+
+    post = get_object_or_404(ForumPost, id=post_id)
+    if not (request.user.is_staff or post.author_id == request.user.id):
+        return HttpResponseForbidden("无权限")
+
+    post.delete()
+    messages.success(request, "帖子已删除。")
     return redirect("forum:forum_page")
 
 
@@ -367,3 +458,31 @@ def review_post(request, post_id):
         messages.error(request, "无效的审核操作。")
 
     return redirect("forum:forum_page")
+
+
+@login_required
+def upload_editor_image(request):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "message": "请求方式不正确。"}, status=405)
+
+    image = request.FILES.get("image")
+    if not image:
+        return JsonResponse({"ok": False, "message": "未找到上传文件。"}, status=400)
+    if image.size > MAX_EDITOR_IMAGE_SIZE:
+        return JsonResponse({"ok": False, "message": "图片大小不能超过 5MB。"}, status=400)
+
+    file_name = (image.name or "").lower()
+    ext = "." + file_name.split(".")[-1] if "." in file_name else ""
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        return JsonResponse({"ok": False, "message": "仅支持 jpg/png/gif/webp 图片。"}, status=400)
+    if not (image.content_type or "").startswith("image/"):
+        return JsonResponse({"ok": False, "message": "上传文件不是图片。"}, status=400)
+
+    timestamp = timezone.now()
+    save_path = (
+        f"forum/editor/{request.user.id}/{timestamp.strftime('%Y/%m')}/"
+        f"{timestamp.strftime('%Y%m%d%H%M%S%f')}{ext}"
+    )
+    stored_path = default_storage.save(save_path, image)
+    image_url = default_storage.url(stored_path)
+    return JsonResponse({"ok": True, "url": image_url})

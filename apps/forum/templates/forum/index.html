@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% load pc_builder_extras %}
+{% load forum_extras %}
+{% load static %}
 
 {% block title %}论坛 - PC 配置推荐系统{% endblock %}
 
@@ -69,34 +71,104 @@
 
     {% elif active_tab == 'create' %}
       <div class="card">
-        <div class="card-header">发布帖子</div>
-        <form method="post" action="{% url 'forum:create_post' %}">
+        <div class="card-header">{% if editing_post %}编辑帖子{% else %}发布帖子{% endif %}</div>
+        <form method="post" action="{% if editing_post %}{% url 'forum:edit_post' editing_post.id %}{% else %}{% url 'forum:create_post' %}{% endif %}">
           {% csrf_token %}
-          <input type="hidden" name="next" value="{% url 'forum:forum_page' %}?tab=create" />
+          <input type="hidden" name="next" value="{% if editing_post %}{% url 'forum:forum_page' %}?tab=create&edit={{ editing_post.id }}{% else %}{% url 'forum:forum_page' %}?tab=create{% endif %}" />
           <div class="form-group">
             <label class="form-label">标题</label>
-            <input class="form-control" type="text" name="title" maxlength="200" required />
+            <input class="form-control" type="text" name="title" maxlength="200" value="{% if editing_post %}{{ editing_post.title }}{% endif %}" required />
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">发布版块</label>
               <select class="form-select" name="section" required>
                 <option value="">请选择</option>
-                <option value="experience">经验分享</option>
-                <option value="help">问题求助</option>
-                <option value="news">资讯分析</option>
+                <option value="experience" {% if editing_post and editing_post.section == 'experience' %}selected{% endif %}>经验分享</option>
+                <option value="help" {% if editing_post and editing_post.section == 'help' %}selected{% endif %}>问题求助</option>
+                <option value="news" {% if editing_post and editing_post.section == 'news' %}selected{% endif %}>资讯分析</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">标签（逗号分隔）</label>
-              <input class="form-control" type="text" name="tags" placeholder="如：装机,散热,显卡" />
+              <label class="form-label">标签</label>
+              <input class="form-control" type="text" name="tags" value="{% if editing_post %}{{ editing_tags }}{% endif %}" placeholder="如：#内存，#溢价" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">正文</label>
-            <textarea class="form-control" name="content" rows="10" required></textarea>
+            <label class="form-label">正文（Markdown）</label>
+            <textarea class="form-control forum-editor-input" id="forum-post-content" name="content" rows="10" required>{% if editing_post %}{{ editing_post.content }}{% endif %}</textarea>
+            <div class="forum-editor-toolbar" data-forum-editor data-upload-url="{% url 'forum:upload_editor_image' %}">
+              <button class="forum-editor-tool" type="button" data-editor-action="emoji-toggle" aria-label="插入表情">
+                <span class="forum-tool-icon" aria-hidden="true">
+                  <svg class="forum-tool-svg" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.9"></circle>
+                    <circle cx="9.2" cy="10" r="1.1" fill="currentColor"></circle>
+                    <circle cx="14.8" cy="10" r="1.1" fill="currentColor"></circle>
+                    <path d="M8.4 14.1C9.3 15.4 10.5 16 12 16C13.5 16 14.7 15.4 15.6 14.1" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                  </svg>
+                </span><span class="forum-tool-label">表情</span>
+              </button>
+              <button class="forum-editor-tool" type="button" data-editor-action="image-upload" aria-label="插入图片">
+                <span class="forum-tool-icon" aria-hidden="true">
+                  <svg class="forum-tool-svg" viewBox="0 0 24 24" fill="none">
+                    <rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" stroke-width="1.9"></rect>
+                    <circle cx="9" cy="10" r="1.6" fill="currentColor"></circle>
+                    <path d="M6.5 17L11 12.5L13.8 15.3L16.2 12.9L19.2 15.9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                </span><span class="forum-tool-label">图片</span>
+              </button>
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="forum-editor-file-input" data-editor-image-input style="display:none;" />
+              <div class="forum-emoji-panel hidden" data-editor-emoji-panel>
+                <div class="forum-emoji-title">所有表情</div>
+                <div class="forum-emoji-grid">
+                  <button type="button" class="forum-emoji-item" data-emoji="😀">😀</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😄">😄</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😋">😋</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤗">🤗</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😆">😆</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😍">😍</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🥺">🥺</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤭">🤭</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😁">😁</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😏">😏</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😤">😤</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😅">😅</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤤">🤤</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😭">😭</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😡">😡</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😴">😴</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😎">😎</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😱">😱</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤯">🤯</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😵">😵</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😬">😬</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😜">😜</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🫠">🫠</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤓">🤓</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤨">🤨</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="😇">😇</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🥳">🥳</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤔">🤔</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="👍">👍</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="👏">👏</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🔥">🔥</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="💡">💡</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🎉">🎉</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="💯">💯</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="❤️">❤️</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🤝">🤝</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="🙏">🙏</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="👀">👀</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="✅">✅</button>
+                  <button type="button" class="forum-emoji-item" data-emoji="❓">❓</button>
+                </div>
+              </div>
+            </div>
           </div>
-          <button type="submit" class="btn btn-primary">提交审核</button>
+          <button type="submit" class="btn btn-primary">{% if editing_post %}保存并重新提交审核{% else %}提交审核{% endif %}</button>
+          {% if editing_post %}
+            <a class="btn btn-outline" href="{% url 'forum:forum_page' %}?tab=create">取消编辑</a>
+          {% endif %}
         </form>
       </div>
 
@@ -124,6 +196,13 @@
                 {% if post.status == 'rejected' and post.reject_reason %}
                   <div class="alert alert-warning alert-compact">驳回原因：{{ post.reject_reason }}</div>
                 {% endif %}
+                <div class="forum-action-row">
+                  <a class="btn btn-outline forum-mini-btn" href="{% url 'forum:forum_page' %}?tab=create&edit={{ post.id }}">编辑</a>
+                  <form method="post" action="{% url 'forum:delete_post' post.id %}" class="inline-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline forum-mini-btn">删除</button>
+                  </form>
+                </div>
               </article>
             {% endfor %}
           </div>
@@ -185,7 +264,7 @@
           </div>
         {% endif %}
 
-        <div class="forum-content">{{ detail_post.content|linebreaksbr }}</div>
+        <div class="forum-content md-content">{{ detail_post.content|markdown_safe }}</div>
 
         {% if detail_post.author_id != user.id %}
           <form method="post" action="{% url 'forum:toggle_follow' detail_post.author_id %}" class="inline-form">
@@ -212,7 +291,13 @@
               {% if detail_favorited %}取消收藏{% else %}收藏{% endif %}
             </button>
           </form>
-          <a href="{% url 'forum:forum_page' %}?tab={{ detail_post.section }}" class="btn btn-outline">返回版块</a>
+          {% if user.id == detail_post.author_id or user.is_staff %}
+            <a href="{% url 'forum:forum_page' %}?tab=create&edit={{ detail_post.id }}" class="btn btn-outline">编辑帖子</a>
+            <form method="post" action="{% url 'forum:delete_post' detail_post.id %}" class="inline-form">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline">删除帖子</button>
+            </form>
+          {% endif %}
         </div>
       </div>
 
@@ -253,15 +338,14 @@
                   </form>
                 {% endif %}
               </div>
-              <div>{{ comment.content|linebreaksbr }}</div>
-
-              <form method="post" action="{% url 'forum:add_comment' detail_post.id %}" class="forum-reply-form">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}" />
-                <input type="hidden" name="parent_id" value="{{ comment.id }}" />
-                <textarea class="form-control" name="content" rows="2" placeholder="回复 {{ comment.author.username }}"></textarea>
-                <button type="submit" class="btn btn-outline forum-mini-btn">回复</button>
-              </form>
+              <div
+                class="forum-comment-content js-comment-reply-target"
+                data-parent-id="{{ comment.id }}"
+                data-reply-user="{{ comment.author.username }}"
+              >
+                {{ comment.content|linebreaksbr }}
+              </div>
+              <div class="text-muted forum-reply-hint">点击评论即可回复</div>
 
               {% with replies=reply_map|get_item:comment.id %}
                 {% if replies %}
@@ -280,7 +364,13 @@
                             </form>
                           {% endif %}
                         </div>
-                        <div>{{ reply.content|linebreaksbr }}</div>
+                        <div
+                          class="forum-comment-content js-comment-reply-target"
+                          data-parent-id="{{ reply.id }}"
+                          data-reply-user="{{ reply.author.username }}"
+                        >
+                          {{ reply.content|linebreaksbr }}
+                        </div>
                       </div>
                     {% endfor %}
                   </div>
@@ -292,6 +382,13 @@
           <div class="text-muted">还没有评论，来抢沙发吧。</div>
         {% endif %}
       </div>
+
+      <form method="post" action="{% url 'forum:add_comment' detail_post.id %}" id="forum-modal-reply-form" class="hidden">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+        <input type="hidden" name="parent_id" value="" />
+        <input type="hidden" name="content" value="" />
+      </form>
 
     {% elif active_tab == 'moderation' and user.is_staff %}
       <div class="card">
@@ -315,7 +412,7 @@
                   {% endfor %}
                 </div>
               {% endif %}
-              <div class="forum-content">{{ post.content|linebreaksbr }}</div>
+              <div class="forum-content md-content">{{ post.content|markdown_safe }}</div>
 
               <div class="forum-action-row">
                 <form method="post" action="{% url 'forum:review_post' post.id %}" class="inline-form">
@@ -323,14 +420,20 @@
                   <input type="hidden" name="action" value="approve" />
                   <button type="submit" class="btn btn-secondary">通过</button>
                 </form>
+                <button
+                  type="button"
+                  class="btn btn-outline js-forum-reject-trigger"
+                  data-post-id="{{ post.id }}"
+                  data-post-title="{{ post.title|escape }}"
+                >
+                  驳回
+                </button>
               </div>
-
-              <form method="post" action="{% url 'forum:review_post' post.id %}" class="forum-reject-form">
+              <form method="post" action="{% url 'forum:review_post' post.id %}" id="forum-reject-form-{{ post.id }}" class="hidden">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="reject" />
-                <input class="form-control" type="text" name="reject_reason" maxlength="255" placeholder="驳回原因（可选）" />
-                <label class="forum-ban-check"><input type="checkbox" name="ban_user" value="1" /> 多次违规，封禁该用户</label>
-                <button type="submit" class="btn btn-primary">驳回</button>
+                <input type="hidden" name="reject_reason" value="" />
+                <input type="hidden" name="ban_user" value="0" />
               </form>
             </article>
           {% endfor %}
@@ -346,4 +449,10 @@
     {% endif %}
   </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/pages/forum-editor.js' %}?v=20260404-forum-editor-2"></script>
+<script src="{% static 'js/pages/forum-moderation.js' %}?v=20260404-forum-moderation-1"></script>
+<script src="{% static 'js/pages/forum-comment-reply.js' %}?v=20260404-forum-comment-reply-1"></script>
 {% endblock %}
