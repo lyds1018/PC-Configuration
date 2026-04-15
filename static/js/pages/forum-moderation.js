@@ -27,7 +27,7 @@
             const input = document.createElement('input');
             input.type = 'text';
             input.maxLength = 255;
-            input.placeholder = '驳回原因（可选）';
+            input.placeholder = '驳回原因';
             input.className = 'form-control pc-modal-input';
             dialog.appendChild(input);
 
@@ -37,7 +37,7 @@
             checkbox.type = 'checkbox';
             checkbox.value = '1';
             checkWrap.appendChild(checkbox);
-            checkWrap.appendChild(document.createTextNode(' 多次违规，封禁该用户'));
+            checkWrap.appendChild(document.createTextNode('封禁该用户'));
             dialog.appendChild(checkWrap);
 
             const actions = document.createElement('div');

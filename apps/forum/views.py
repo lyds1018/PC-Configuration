@@ -26,6 +26,7 @@ FORUM_TAB_HELP = "help"
 FORUM_TAB_NEWS = "news"
 FORUM_TAB_CREATE = "create"
 FORUM_TAB_PROFILE = "profile"
+FORUM_TAB_FOLLOWING = "following"
 FORUM_TAB_DETAIL = "detail"
 FORUM_TAB_MODERATION = "moderation"
 
@@ -118,8 +119,10 @@ def _get_detail_context(request, post_id):
     ):
         raise PermissionError
 
-    ForumPost.objects.filter(id=post.id).update(view_count=F("view_count") + 1)
-    post.refresh_from_db()
+    is_unpublished_preview = post.status != ForumPost.STATUS_PUBLISHED
+    if not is_unpublished_preview:
+        ForumPost.objects.filter(id=post.id).update(view_count=F("view_count") + 1)
+        post.refresh_from_db()
 
     comment_rows = (
         ForumComment.objects.filter(post=post)
@@ -147,6 +150,7 @@ def _get_detail_context(request, post_id):
 
     return {
         "detail_post": post,
+        "detail_unpublished_preview": is_unpublished_preview,
         "root_comments": root_comments,
         "reply_map": dict(reply_map),
         "detail_liked": liked,
@@ -202,6 +206,18 @@ def forum_page(request):
                 "favorites": favorites,
             }
         )
+    elif tab == FORUM_TAB_FOLLOWING:
+        followed_user_ids = ForumUserFollow.objects.filter(follower=request.user).values_list("followee_id", flat=True)
+        following_posts = (
+            ForumPost.objects.filter(
+                status=ForumPost.STATUS_PUBLISHED,
+                author_id__in=followed_user_ids,
+            )
+            .select_related("author")
+            .prefetch_related("tags")
+            .order_by("-published_at", "-created_at")
+        )
+        context["following_posts"] = following_posts
     elif tab == FORUM_TAB_CREATE:
         editing_post_id = request.GET.get("edit")
         if editing_post_id:
