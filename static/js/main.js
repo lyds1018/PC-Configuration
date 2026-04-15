@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner"></span> 处理中...';
+                submitBtn.textContent = '处理中...';
             }
         });
     });

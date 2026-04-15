@@ -173,73 +173,156 @@
       </div>
 
     {% elif active_tab == 'profile' %}
-      <div class="card">
-        <div class="card-header">我的帖子</div>
-        {% if my_posts %}
-          <div class="forum-post-list">
-            {% for post in my_posts %}
-              <article class="forum-post-item">
-                <div class="forum-post-head">
-                  <a href="{% url 'forum:forum_page' %}?tab=detail&post={{ post.id }}" class="forum-post-title">{{ post.title }}</a>
-                  <span class="badge {% if post.status == 'published' %}badge-success{% elif post.status == 'pending' %}badge-warning{% else %}badge-primary{% endif %}">
-                    {{ post_status_labels|get_item:post.status }}
-                  </span>
-                </div>
-                <div class="forum-post-meta text-muted">
-                  版块：{{ post.get_section_display }}
-                  <span>创建：{{ post.created_at|date:"Y-m-d H:i" }}</span>
-                  <span>浏览 {{ post.view_count }}</span>
-                  <span>点赞 {{ post.like_count }}</span>
-                  <span>收藏 {{ post.favorite_count }}</span>
-                  <span>评论 {{ post.comment_count }}</span>
-                </div>
-                {% if post.status == 'rejected' and post.reject_reason %}
-                  <div class="alert alert-warning alert-compact">驳回原因：{{ post.reject_reason }}</div>
-                {% endif %}
-                <div class="forum-action-row">
-                  <a class="btn btn-outline forum-mini-btn" href="{% url 'forum:forum_page' %}?tab=create&edit={{ post.id }}">编辑</a>
-                  <form method="post" action="{% url 'forum:delete_post' post.id %}" class="inline-form">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline forum-mini-btn">删除</button>
-                  </form>
-                </div>
-              </article>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="text-muted">你还没有发帖。</div>
-        {% endif %}
-      </div>
-
-      <div class="grid grid-2">
+      {% if profile_view == 'posts' %}
         <div class="card">
-          <div class="card-header">最近点赞（一周内）</div>
+          <div class="card-header flex-between inline-flex-wrap-gap-1">
+            <span>我的帖子</span>
+            <a class="btn btn-outline" href="{% url 'forum:forum_page' %}?tab=profile">返回</a>
+          </div>
+          {% if my_posts %}
+            <div class="forum-post-list">
+              {% for post in my_posts %}
+                <article class="forum-post-item">
+                  <div class="forum-post-head">
+                    <a href="{% url 'forum:forum_page' %}?tab=detail&post={{ post.id }}" class="forum-post-title">{{ post.title }}</a>
+                    <span class="badge {% if post.status == 'published' %}badge-success{% elif post.status == 'pending' %}badge-warning{% else %}badge-primary{% endif %}">
+                      {{ post_status_labels|get_item:post.status }}
+                    </span>
+                  </div>
+                  <div class="forum-post-meta text-muted">
+                    版块：{{ post.get_section_display }}
+                    <span>创建：{{ post.created_at|date:"Y-m-d H:i" }}</span>
+                    <span>浏览 {{ post.view_count }}</span>
+                    <span>点赞 {{ post.like_count }}</span>
+                    <span>收藏 {{ post.favorite_count }}</span>
+                    <span>评论 {{ post.comment_count }}</span>
+                  </div>
+                  {% if post.status == 'rejected' and post.reject_reason %}
+                    <div class="alert alert-warning alert-compact">驳回原因：{{ post.reject_reason }}</div>
+                  {% endif %}
+                  <div class="forum-action-row">
+                    <a class="btn btn-outline forum-mini-btn" href="{% url 'forum:forum_page' %}?tab=create&edit={{ post.id }}">编辑</a>
+                    <form method="post" action="{% url 'forum:delete_post' post.id %}" class="inline-form">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-outline forum-mini-btn">删除</button>
+                    </form>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-muted">你还没有发帖。</div>
+          {% endif %}
+        </div>
+      {% elif profile_view == 'likes' %}
+        <div class="card">
+          <div class="card-header flex-between inline-flex-wrap-gap-1">
+            <span>最近点赞（一周内）</span>
+            <a class="btn btn-outline" href="{% url 'forum:forum_page' %}?tab=profile">返回</a>
+          </div>
           {% if recent_likes %}
             {% for item in recent_likes %}
               <div class="forum-mini-row">
-                <a href="{% url 'forum:forum_page' %}?tab=detail&post={{ item.post_id }}">{{ item.post.title }}</a>
-                <span class="text-muted">{{ item.created_at|date:"m-d H:i" }}</span>
+                <a class="forum-post-title" href="{% url 'forum:forum_page' %}?tab=detail&post={{ item.post_id }}">{{ item.post.title }}</a>
+                <span class="text-muted">{{ item.created_at|date:"Y-m-d H:i" }}</span>
               </div>
             {% endfor %}
           {% else %}
             <div class="text-muted">近一周暂无点赞记录。</div>
           {% endif %}
         </div>
-
+      {% elif profile_view == 'favorites' %}
         <div class="card">
-          <div class="card-header">全部收藏</div>
+          <div class="card-header flex-between inline-flex-wrap-gap-1">
+            <span>我的收藏</span>
+            <a class="btn btn-outline" href="{% url 'forum:forum_page' %}?tab=profile">返回</a>
+          </div>
           {% if favorites %}
             {% for item in favorites %}
               <div class="forum-mini-row">
-                <a href="{% url 'forum:forum_page' %}?tab=detail&post={{ item.post_id }}">{{ item.post.title }}</a>
-                <span class="text-muted">{{ item.created_at|date:"Y-m-d" }}</span>
+                <a class="forum-post-title" href="{% url 'forum:forum_page' %}?tab=detail&post={{ item.post_id }}">{{ item.post.title }}</a>
+                <span class="text-muted">{{ item.created_at|date:"Y-m-d H:i" }}</span>
               </div>
             {% endfor %}
           {% else %}
             <div class="text-muted">暂无收藏帖子。</div>
           {% endif %}
         </div>
-      </div>
+      {% else %}
+        <div class="card">
+          <div class="card-header">
+            <a class="forum-header-link" href="{% url 'forum:forum_page' %}?tab=profile&view=posts">我的帖子</a>
+          </div>
+          {% if my_posts %}
+            <div class="forum-post-list">
+              {% for post in my_posts %}
+                <article class="forum-post-item">
+                  <div class="forum-post-head">
+                    <a href="{% url 'forum:forum_page' %}?tab=detail&post={{ post.id }}" class="forum-post-title">{{ post.title }}</a>
+                    <span class="badge {% if post.status == 'published' %}badge-success{% elif post.status == 'pending' %}badge-warning{% else %}badge-primary{% endif %}">
+                      {{ post_status_labels|get_item:post.status }}
+                    </span>
+                  </div>
+                  <div class="forum-post-meta text-muted">
+                    版块：{{ post.get_section_display }}
+                    <span>创建：{{ post.created_at|date:"Y-m-d H:i" }}</span>
+                    <span>浏览 {{ post.view_count }}</span>
+                    <span>点赞 {{ post.like_count }}</span>
+                    <span>收藏 {{ post.favorite_count }}</span>
+                    <span>评论 {{ post.comment_count }}</span>
+                  </div>
+                  {% if post.status == 'rejected' and post.reject_reason %}
+                    <div class="alert alert-warning alert-compact">驳回原因：{{ post.reject_reason }}</div>
+                  {% endif %}
+                  <div class="forum-action-row">
+                    <a class="btn btn-outline forum-mini-btn" href="{% url 'forum:forum_page' %}?tab=create&edit={{ post.id }}">编辑</a>
+                    <form method="post" action="{% url 'forum:delete_post' post.id %}" class="inline-form">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-outline forum-mini-btn">删除</button>
+                    </form>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-muted">你还没有发帖。</div>
+          {% endif %}
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-header">
+              <a class="forum-header-link" href="{% url 'forum:forum_page' %}?tab=profile&view=likes">最近点赞（一周内）</a>
+            </div>
+            {% if recent_likes %}
+              {% for item in recent_likes %}
+                <div class="forum-mini-row">
+                  <a class="forum-post-title" href="{% url 'forum:forum_page' %}?tab=detail&post={{ item.post_id }}">{{ item.post.title }}</a>
+                  <span class="text-muted">{{ item.created_at|date:"m-d H:i" }}</span>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="text-muted">近一周暂无点赞记录。</div>
+            {% endif %}
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <a class="forum-header-link" href="{% url 'forum:forum_page' %}?tab=profile&view=favorites">我的收藏</a>
+            </div>
+            {% if favorites %}
+              {% for item in favorites %}
+                <div class="forum-mini-row">
+                  <a class="forum-post-title" href="{% url 'forum:forum_page' %}?tab=detail&post={{ item.post_id }}">{{ item.post.title }}</a>
+                  <span class="text-muted">{{ item.created_at|date:"Y-m-d" }}</span>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="text-muted">暂无收藏帖子。</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
 
     {% elif active_tab == 'following' %}
       <div class="card">

@@ -30,6 +30,11 @@ FORUM_TAB_FOLLOWING = "following"
 FORUM_TAB_DETAIL = "detail"
 FORUM_TAB_MODERATION = "moderation"
 
+PROFILE_VIEW_OVERVIEW = "overview"
+PROFILE_VIEW_POSTS = "posts"
+PROFILE_VIEW_LIKES = "likes"
+PROFILE_VIEW_FAVORITES = "favorites"
+
 FORUM_SORT_NEWEST = "newest"
 FORUM_SORT_VIEWS = "views"
 FORUM_SORT_LIKES = "likes"
@@ -187,23 +192,41 @@ def forum_page(request):
         context["posts"] = _list_post_queryset(tab, q, sort)
 
     elif tab == FORUM_TAB_PROFILE:
-        my_posts = ForumPost.objects.filter(author=request.user).prefetch_related("tags").order_by("-created_at")
+        profile_view = (request.GET.get("view") or PROFILE_VIEW_OVERVIEW).strip()
+        if profile_view not in {
+            PROFILE_VIEW_OVERVIEW,
+            PROFILE_VIEW_POSTS,
+            PROFILE_VIEW_LIKES,
+            PROFILE_VIEW_FAVORITES,
+        }:
+            profile_view = PROFILE_VIEW_OVERVIEW
+
+        my_posts_qs = ForumPost.objects.filter(author=request.user).prefetch_related("tags").order_by("-created_at")
         week_ago = timezone.now() - timedelta(days=7)
-        recent_likes = (
+        recent_likes_qs = (
             ForumPostLike.objects.filter(user=request.user, created_at__gte=week_ago, post__status=ForumPost.STATUS_PUBLISHED)
             .select_related("post", "post__author")
             .order_by("-created_at")
         )
-        favorites = (
+        favorites_qs = (
             ForumPostFavorite.objects.filter(user=request.user, post__status=ForumPost.STATUS_PUBLISHED)
             .select_related("post", "post__author")
             .order_by("-created_at")
         )
+
+        my_posts = my_posts_qs if profile_view == PROFILE_VIEW_POSTS else my_posts_qs[:3]
+        recent_likes = recent_likes_qs if profile_view == PROFILE_VIEW_LIKES else recent_likes_qs[:5]
+        favorites = favorites_qs if profile_view == PROFILE_VIEW_FAVORITES else favorites_qs[:5]
+
         context.update(
             {
+                "profile_view": profile_view,
                 "my_posts": my_posts,
                 "recent_likes": recent_likes,
                 "favorites": favorites,
+                "my_posts_total": my_posts_qs.count(),
+                "recent_likes_total": recent_likes_qs.count(),
+                "favorites_total": favorites_qs.count(),
             }
         )
     elif tab == FORUM_TAB_FOLLOWING:
@@ -439,7 +462,7 @@ def toggle_follow(request, user_id):
 @login_required
 def review_post(request, post_id):
     if request.method != "POST":
-        return redirect("forum:forum_page")
+        return redirect(f"{reverse('forum:forum_page')}?tab={FORUM_TAB_MODERATION}")
     if not request.user.is_staff:
         return HttpResponseForbidden("仅管理员可操作")
 
@@ -473,7 +496,7 @@ def review_post(request, post_id):
     else:
         messages.error(request, "无效的审核操作。")
 
-    return redirect("forum:forum_page")
+    return redirect(f"{reverse('forum:forum_page')}?tab={FORUM_TAB_MODERATION}")
 
 
 @login_required

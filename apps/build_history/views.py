@@ -105,15 +105,27 @@ def save_recommend_combo(request, index):
         return JsonResponse({"ok": False, "message": "未找到可保存的推荐方案。"}, status=400)
 
     row = rows[index - 1]
+    row_parts_detail = row.get("parts_detail", {})
+
+    def _normalize_part(key):
+        part = row_parts_detail.get(key)
+        if isinstance(part, dict):
+            return {
+                "name": str(part.get("name", "") or ""),
+                "price": float(part.get("price", 0.0) or 0.0),
+            }
+        # Backward compatibility for old session rows that only store part names.
+        return str(row.get(key, "") or "")
+
     parts = {
-        "cpu": row.get("cpu", ""),
-        "mb": row.get("mb", ""),
-        "ram": row.get("ram", ""),
-        "storage": row.get("storage", ""),
-        "gpu": row.get("gpu", ""),
-        "case": row.get("case", ""),
-        "psu": row.get("psu", ""),
-        "cooler": row.get("cooler", ""),
+        "cpu": _normalize_part("cpu"),
+        "mb": _normalize_part("mb"),
+        "ram": _normalize_part("ram"),
+        "storage": _normalize_part("storage"),
+        "gpu": _normalize_part("gpu"),
+        "case": _normalize_part("case"),
+        "psu": _normalize_part("psu"),
+        "cooler": _normalize_part("cooler"),
     }
     payload = {
         "parts": parts,

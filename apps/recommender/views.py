@@ -146,19 +146,46 @@ def recommend_result_data(request):
     request.session[LAST_FORM_SESSION_KEY] = normalized_form_data
 
     rows = []
+
+    def _part_payload(obj):
+        if obj is None:
+            return {"name": "", "price": 0.0}
+        return {
+            "name": str(getattr(obj, "name", "") or ""),
+            "price": float(getattr(obj, "price", 0.0) or 0.0),
+        }
+
     for item in recommendations:
         parts = item.get("parts", {})
         scores = item.get("scores", {})
+        cpu = parts.get("cpu")
+        mb = parts.get("mb")
+        ram = parts.get("ram")
+        storage = parts.get("storage")
+        gpu = parts.get("gpu")
+        case = parts.get("case")
+        psu = parts.get("psu")
+        cooler = parts.get("cooler")
         rows.append(
             {
-                "cpu": getattr(parts.get("cpu"), "name", ""),
-                "mb": getattr(parts.get("mb"), "name", ""),
-                "ram": getattr(parts.get("ram"), "name", ""),
-                "storage": getattr(parts.get("storage"), "name", ""),
-                "gpu": getattr(parts.get("gpu"), "name", ""),
-                "case": getattr(parts.get("case"), "name", ""),
-                "psu": getattr(parts.get("psu"), "name", ""),
-                "cooler": getattr(parts.get("cooler"), "name", ""),
+                "cpu": getattr(cpu, "name", ""),
+                "mb": getattr(mb, "name", ""),
+                "ram": getattr(ram, "name", ""),
+                "storage": getattr(storage, "name", ""),
+                "gpu": getattr(gpu, "name", ""),
+                "case": getattr(case, "name", ""),
+                "psu": getattr(psu, "name", ""),
+                "cooler": getattr(cooler, "name", ""),
+                "parts_detail": {
+                    "cpu": _part_payload(cpu),
+                    "mb": _part_payload(mb),
+                    "ram": _part_payload(ram),
+                    "storage": _part_payload(storage),
+                    "gpu": _part_payload(gpu),
+                    "case": _part_payload(case),
+                    "psu": _part_payload(psu),
+                    "cooler": _part_payload(cooler),
+                },
                 "total_price": float(item.get("total_price", 0.0) or 0.0),
                 "total_score_100": float(scores.get("total_score_100", 0.0) or 0.0),
                 "combo_value_100": float(item.get("combo_value_100", 0.0) or 0.0),
