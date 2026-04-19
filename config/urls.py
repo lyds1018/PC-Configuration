@@ -1,7 +1,3 @@
-"""
-URL Configuration for PC Configuration project.
-"""
-
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -17,12 +13,12 @@ urlpatterns = [
     path("forum/", include("forum.urls", namespace="forum")),
 ]
 
-# Serve media files in development
+# 开发环境下提供媒体文件访问
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# Default URL - redirect to build_pc (DIY 装机页面)
+# 默认 URL - 重定向到装机页面
 urlpatterns += [
     path("", lambda request: redirect("pc_builder:build_pc")),
 ]

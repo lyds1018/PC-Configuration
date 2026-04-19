@@ -1,3 +1,8 @@
+'''
+构建历史相关的数据模型，
+用于存储用户保存的构建历史记录
+'''
+
 from django.db import models
 
 

@@ -1,3 +1,5 @@
+"""配件数据模型定义"""
+
 from django.db import models
 
 
@@ -155,4 +157,3 @@ class CpuCooler(models.Model):
 
     def __str__(self):
         return self.name
-

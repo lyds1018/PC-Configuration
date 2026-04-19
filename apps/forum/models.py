@@ -1,6 +1,9 @@
+''' 论坛模块数据模型 '''
+
 from django.contrib.auth import get_user_model
 from django.db import models
 
+# 获取用户模型
 User = get_user_model()
 
 

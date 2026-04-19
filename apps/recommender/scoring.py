@@ -2,7 +2,7 @@ import math
 from dataclasses import dataclass
 from typing import Dict, Iterable, Mapping
 
-
+# 用途类型常量
 WORKLOAD_GAME = "game"
 WORKLOAD_OFFICE = "office"
 WORKLOAD_PRODUCTIVITY = "productivity"
@@ -19,20 +19,56 @@ WORKLOAD_ALIASES = {
 
 SUB_WEIGHTS = {
     WORKLOAD_GAME: {
-        "cpu": {"single_score": 0.35, "multi_score": 0.15, "bb": 0.25, "ct": 0.10, "tdp": 0.15},
-        "gpu": {"gaming_score": 0.50, "compute_score": 0.10, "cm": 0.20, "vram_size": 0.10, "tdp": 0.10},
+        "cpu": {
+            "single_score": 0.35,
+            "multi_score": 0.15,
+            "bb": 0.25,
+            "ct": 0.10,
+            "tdp": 0.15,
+        },
+        "gpu": {
+            "gaming_score": 0.50,
+            "compute_score": 0.10,
+            "cm": 0.20,
+            "vram_size": 0.10,
+            "tdp": 0.10,
+        },
         "ram": {"capacity": 0.50, "fl": 0.50},
         "storage": {"capacity": 0.20, "cache_size": 0.10, "sp": 0.50, "rand": 0.20},
     },
     WORKLOAD_OFFICE: {
-        "cpu": {"single_score": 0.30, "multi_score": 0.25, "bb": 0.20, "ct": 0.15, "tdp": 0.10},
-        "gpu": {"gaming_score": 0.10, "compute_score": 0.20, "cm": 0.20, "vram_size": 0.20, "tdp": 0.30},
+        "cpu": {
+            "single_score": 0.30,
+            "multi_score": 0.25,
+            "bb": 0.20,
+            "ct": 0.15,
+            "tdp": 0.10,
+        },
+        "gpu": {
+            "gaming_score": 0.10,
+            "compute_score": 0.20,
+            "cm": 0.20,
+            "vram_size": 0.20,
+            "tdp": 0.30,
+        },
         "ram": {"capacity": 0.60, "fl": 0.40},
         "storage": {"capacity": 0.30, "cache_size": 0.10, "sp": 0.30, "rand": 0.30},
     },
     WORKLOAD_PRODUCTIVITY: {
-        "cpu": {"single_score": 0.15, "multi_score": 0.40, "bb": 0.10, "ct": 0.25, "tdp": 0.10},
-        "gpu": {"gaming_score": 0.10, "compute_score": 0.45, "cm": 0.15, "vram_size": 0.20, "tdp": 0.10},
+        "cpu": {
+            "single_score": 0.15,
+            "multi_score": 0.40,
+            "bb": 0.10,
+            "ct": 0.25,
+            "tdp": 0.10,
+        },
+        "gpu": {
+            "gaming_score": 0.10,
+            "compute_score": 0.45,
+            "cm": 0.15,
+            "vram_size": 0.20,
+            "tdp": 0.10,
+        },
         "ram": {"capacity": 0.70, "fl": 0.30},
         "storage": {"capacity": 0.25, "cache_size": 0.15, "sp": 0.25, "rand": 0.35},
     },
@@ -154,7 +190,9 @@ def _storage_features(storage: Mapping[str, float]) -> Dict[str, float]:
     }
 
 
-def _build_bounds(items: Iterable[Mapping[str, float]], feature_builder) -> Dict[str, MinMax]:
+def _build_bounds(
+    items: Iterable[Mapping[str, float]], feature_builder
+) -> Dict[str, MinMax]:
     values_by_feature: Dict[str, list] = {}
     for item in items:
         features = feature_builder(item)
@@ -185,9 +223,13 @@ def build_normalization_stats(
     )
 
 
-def _normalize_cpu(features: Dict[str, float], stats: NormalizationStats) -> Dict[str, float]:
+def _normalize_cpu(
+    features: Dict[str, float], stats: NormalizationStats
+) -> Dict[str, float]:
     return {
-        "single_score": _linear_norm(features["single_score"], stats.cpu["single_score"]),
+        "single_score": _linear_norm(
+            features["single_score"], stats.cpu["single_score"]
+        ),
         "multi_score": _linear_norm(features["multi_score"], stats.cpu["multi_score"]),
         "bb": _linear_norm(features["bb"], stats.cpu["bb"]),
         "ct": _linear_norm(features["ct"], stats.cpu["ct"]),
@@ -195,24 +237,34 @@ def _normalize_cpu(features: Dict[str, float], stats: NormalizationStats) -> Dic
     }
 
 
-def _normalize_gpu(features: Dict[str, float], stats: NormalizationStats) -> Dict[str, float]:
+def _normalize_gpu(
+    features: Dict[str, float], stats: NormalizationStats
+) -> Dict[str, float]:
     return {
-        "gaming_score": _linear_norm(features["gaming_score"], stats.gpu["gaming_score"]),
-        "compute_score": _linear_norm(features["compute_score"], stats.gpu["compute_score"]),
+        "gaming_score": _linear_norm(
+            features["gaming_score"], stats.gpu["gaming_score"]
+        ),
+        "compute_score": _linear_norm(
+            features["compute_score"], stats.gpu["compute_score"]
+        ),
         "cm": _linear_norm(features["cm"], stats.gpu["cm"]),
         "vram_size": _linear_norm(features["vram_size"], stats.gpu["vram_size"]),
         "tdp": _inverse_log_norm(features["tdp"], stats.gpu["tdp"].max_value),
     }
 
 
-def _normalize_ram(features: Dict[str, float], stats: NormalizationStats) -> Dict[str, float]:
+def _normalize_ram(
+    features: Dict[str, float], stats: NormalizationStats
+) -> Dict[str, float]:
     return {
         "capacity": _linear_norm(features["capacity"], stats.ram["capacity"]),
         "fl": _linear_norm(features["fl"], stats.ram["fl"]),
     }
 
 
-def _normalize_storage(features: Dict[str, float], stats: NormalizationStats) -> Dict[str, float]:
+def _normalize_storage(
+    features: Dict[str, float], stats: NormalizationStats
+) -> Dict[str, float]:
     return {
         "capacity": _linear_norm(features["capacity"], stats.storage["capacity"]),
         "cache_size": _linear_norm(features["cache_size"], stats.storage["cache_size"]),

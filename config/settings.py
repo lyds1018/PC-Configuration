@@ -1,24 +1,18 @@
-"""
-Django settings for PC Configuration project.
-"""
-
+import os
 import secrets
 import sys
-import os
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# 构建项目路径
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 将 apps 目录加入 Python 路径，便于直接使用 "accounts" / "pc_builder" 作为 app 名称
+# 将 apps 目录加入 Python 路径
 APPS_DIR = BASE_DIR / "apps"
 if str(APPS_DIR) not in sys.path:
     sys.path.insert(0, str(APPS_DIR))
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = secrets.token_urlsafe(50)
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = [
@@ -29,7 +23,7 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
-# Application definition
+# 应用列表
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -37,7 +31,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Local apps
+    # 本地应用
     "accounts",
     "pc_builder",
     "recommender",
@@ -75,7 +69,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Database
+# 数据库配置
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -87,7 +81,7 @@ DATABASES = {
     }
 }
 
-# Password validation
+# 密码验证
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -103,7 +97,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
 LANGUAGE_CODE = "zh-hans"
 TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
@@ -114,19 +107,17 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
-STATIC_ROOT = BASE_DIR / "staticfiles"  # 生产环境收集静态资源的目录
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Media files
+# 媒体文件 (用户上传)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Default primary key field type
+# 默认主键字段类型
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Authentication
+# 认证配置
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/pc-builder/"
 LOGOUT_REDIRECT_URL = "/"
 
-# Custom user model (if needed in future)
-# AUTH_USER_MODEL = "accounts.User"
