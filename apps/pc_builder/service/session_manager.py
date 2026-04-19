@@ -1,4 +1,4 @@
-from .catalog import SELECTION_SESSION_KEY
+from ..catalog import SELECTION_SESSION_KEY
 
 
 def get_session_selection(request):

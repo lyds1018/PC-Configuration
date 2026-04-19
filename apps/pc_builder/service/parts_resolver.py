@@ -1,4 +1,4 @@
-from .catalog import BUILD_CATEGORIES, PARTS_CONFIG
+from ..catalog import BUILD_CATEGORIES, PARTS_CONFIG
 from .utils import read_quantity
 
 
