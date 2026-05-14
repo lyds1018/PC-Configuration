@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Mapping
 
-from compatibility import run_checks
 from pc_builder.models import Case, Cpu, CpuCooler, Gpu, Mb, Psu, Ram, Storage
 
 from .scoring import (
@@ -11,6 +10,19 @@ from .scoring import (
     WORKLOAD_PRODUCTIVITY,
     build_normalization_stats,
     score_build,
+)
+from .utils import (
+    as_parts_payload,
+    is_compatible,
+    is_limit_reached,
+    normalize_brand,
+    normalize_workload,
+    obj_to_score_dict,
+    part_price,
+    scale_0_100,
+    sum_price,
+    to_float,
+    to_int,
 )
 
 WORKLOAD_TEXT_RULES = {
@@ -21,11 +33,12 @@ WORKLOAD_TEXT_RULES = {
 
 KNOWN_CPU_BRANDS = ("AMD", "英特尔", "INTEL")
 KNOWN_GPU_CARD_BRANDS = ("华硕", "微星", "技嘉", "七彩虹", "影驰", "蓝宝石")
-MAX_FEASIBLE_COMBOS = 500
 
 
 @dataclass
 class RecommendationRequest:
+    """推荐请求参数：由表单输入和自由文本共同补全。"""
+
     budget_min: float = 0.0
     budget_max: float = 0.0
     workload: str = WORKLOAD_GAME
@@ -36,48 +49,10 @@ class RecommendationRequest:
     top_k: int = 3
 
 
-def _to_float(value, default=0.0):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _to_int(value, default=0):
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return default
-
-
-def _normalize_brand(value: str) -> str:
-    text = (value or "").strip()
-    if not text:
-        return ""
-    upper = text.upper()
-    if upper in {"INTEL", "英特尔"}:
-        return "英特尔"
-    if upper in {"AMD"}:
-        return "AMD"
-    if upper in {"NVIDIA", "英伟达"}:
-        return "NVIDIA"
-    return text
-
-
-def _normalize_workload(value: str) -> str:
-    text = (value or "").strip().lower()
-    if text in {WORKLOAD_GAME, "游戏"}:
-        return WORKLOAD_GAME
-    if text in {WORKLOAD_OFFICE, "办公"}:
-        return WORKLOAD_OFFICE
-    if text in {WORKLOAD_PRODUCTIVITY, "生产力"}:
-        return WORKLOAD_PRODUCTIVITY
-    return WORKLOAD_GAME
-
-
 def parse_user_preferences(free_text: str) -> Dict[str, str]:
     """
-    从自由文本中提取偏好，解析失败时保持空值。
+    从自然语言中提取用户偏好。
+    解析失败时返回空值，由后续显式表单字段兜底。
     """
     text = (free_text or "").strip()
     lowered = text.lower()
@@ -111,12 +86,12 @@ def parse_user_preferences(free_text: str) -> Dict[str, str]:
             cpu_brand = "AMD"
     elif "INTEL" in upper_text or "英特尔" in text:
         if not cpu_brand:
-            cpu_brand = "英特尔"
+                cpu_brand = "英特尔"
 
     if not cpu_brand:
         for brand in KNOWN_CPU_BRANDS:
             if brand in upper_text or brand in text:
-                cpu_brand = _normalize_brand(brand)
+                cpu_brand = normalize_brand(brand)
                 break
 
     for card_brand in KNOWN_GPU_CARD_BRANDS:
@@ -134,48 +109,8 @@ def parse_user_preferences(free_text: str) -> Dict[str, str]:
     }
 
 
-def _as_parts_payload(
-    cpu: Cpu,
-    mb: Mb,
-    ram: Ram,
-    storage: Storage,
-    gpu: Gpu,
-    case: Case,
-    psu: Psu,
-    cooler: CpuCooler,
-) -> Dict[str, object]:
-    return {
-        "cpu": cpu,
-        "mb": mb,
-        "ram": ram,
-        "storage": storage,
-        "gpu": gpu,
-        "case": case,
-        "psu": psu,
-        "cooler": cooler,
-        "storages": [{"type": storage.type}] if storage else [],
-        "totals": {
-            "total_m2": 1 if storage and "M.2" in str(storage.type).upper() else 0,
-            "total_sata": 0 if storage and "M.2" in str(storage.type).upper() else 1,
-            "total_sata_ssd": 1
-            if storage and "SATA SSD" in str(storage.type).upper()
-            else 0,
-            "total_hdd": 1 if storage and "HDD" in str(storage.type).upper() else 0,
-            "total_memory": _to_int(getattr(ram, "module_count", 1), 1),
-        },
-    }
-
-
-def _part_price(part) -> float:
-    return _to_float(getattr(part, "price", 0.0), 0.0)
-
-
-def _sum_price(parts: List[object]) -> float:
-    return sum(_part_price(p) for p in parts if p is not None)
-
-
 def _brand_filter(queryset, brand: str):
-    normalized = _normalize_brand(brand)
+    normalized = normalize_brand(brand)
     if not normalized:
         return queryset
     if normalized == "NVIDIA":
@@ -190,7 +125,7 @@ def _brand_filter(queryset, brand: str):
 
 
 def _gpu_chip_brand_filter(queryset, chip_brand: str):
-    normalized = _normalize_brand(chip_brand)
+    normalized = normalize_brand(chip_brand)
     if not normalized:
         return queryset
     return queryset.filter(chip_brand__iexact=normalized)
@@ -215,47 +150,9 @@ def _score_reason(workload: str, scores: Mapping[str, float]) -> str:
     return f"生产力侧重并行与计算，CPU分 {scores['cpu_score_100']:.1f}/100，GPU分 {scores['gpu_score_100']:.1f}/100。"
 
 
-def _scale_0_100(value: float) -> float:
-    return max(0.0, min(100.0, value * 100.0))
-
-
-def _obj_to_score_dict(obj) -> Dict[str, float]:
-    fields = [
-        "single_score",
-        "multi_score",
-        "base_clock",
-        "boost_clock",
-        "core_count",
-        "thread_count",
-        "tdp",
-        "gaming_score",
-        "compute_score",
-        "core_clock",
-        "memory_clock",
-        "vram_size",
-        "capacity",
-        "frequency",
-        "latency",
-        "cache_size",
-        "read_speed",
-        "write_speed",
-        "random_read_iops",
-        "random_write_iops",
-    ]
-    return {field: _to_float(getattr(obj, field, 0.0), 0.0) for field in fields}
-
-
-def _is_compatible(parts: Mapping[str, object]) -> bool:
-    return run_checks(dict(parts)).get("ok", False)
-
-
-def _is_limit_reached(feasible: List[Dict[str, object]]) -> bool:
-    return len(feasible) >= MAX_FEASIBLE_COMBOS
-
-
 def _normalize_budget_range(params: RecommendationRequest) -> tuple[float, float]:
-    budget_min = max(0.0, _to_float(params.budget_min, 0.0))
-    budget_max = max(0.0, _to_float(params.budget_max, 0.0))
+    budget_min = max(0.0, to_float(params.budget_min, 0.0))
+    budget_max = max(0.0, to_float(params.budget_max, 0.0))
     if budget_max <= 0:
         budget_max = 20000.0
     if budget_min > budget_max:
@@ -298,10 +195,10 @@ def _has_required_candidate_parts(parts: Mapping[str, List[object]]) -> bool:
 
 def _build_scoring_stats(parts: Mapping[str, List[object]]):
     return build_normalization_stats(
-        cpus=[_obj_to_score_dict(x) for x in parts["cpus"]],
-        gpus=[_obj_to_score_dict(x) for x in parts["gpus"]],
-        rams=[_obj_to_score_dict(x) for x in parts["rams"]],
-        storages=[_obj_to_score_dict(x) for x in parts["storages"]],
+        cpus=[obj_to_score_dict(x) for x in parts["cpus"]],
+        gpus=[obj_to_score_dict(x) for x in parts["gpus"]],
+        rams=[obj_to_score_dict(x) for x in parts["rams"]],
+        storages=[obj_to_score_dict(x) for x in parts["storages"]],
     )
 
 
@@ -309,19 +206,19 @@ def _build_candidate_item(
     cpu, mb, ram, storage, gpu, case, psu, cooler, total_price, workload, stats
 ):
     scores = score_build(
-        cpu=_obj_to_score_dict(cpu),
-        gpu=_obj_to_score_dict(gpu),
-        ram=_obj_to_score_dict(ram),
-        storage=_obj_to_score_dict(storage),
+        cpu=obj_to_score_dict(cpu),
+        gpu=obj_to_score_dict(gpu),
+        ram=obj_to_score_dict(ram),
+        storage=obj_to_score_dict(storage),
         stats=stats,
         workload=workload,
     )
     combo_value = scores["total_score"] / max(total_price, 1.0)
-    scores["cpu_score_100"] = _scale_0_100(scores["cpu_score"])
-    scores["gpu_score_100"] = _scale_0_100(scores["gpu_score"])
-    scores["ram_score_100"] = _scale_0_100(scores["ram_score"])
-    scores["storage_score_100"] = _scale_0_100(scores["storage_score"])
-    scores["total_score_100"] = _scale_0_100(scores["total_score"])
+    scores["cpu_score_100"] = scale_0_100(scores["cpu_score"])
+    scores["gpu_score_100"] = scale_0_100(scores["gpu_score"])
+    scores["ram_score_100"] = scale_0_100(scores["ram_score"])
+    scores["storage_score_100"] = scale_0_100(scores["storage_score"])
+    scores["total_score_100"] = scale_0_100(scores["total_score"])
     return {
         "parts": {
             "cpu": cpu,
@@ -339,104 +236,104 @@ def _build_candidate_item(
     }
 
 
-def _collect_feasible_candidates(
-    parts, workload: str, budget_min: float, budget_max: float, stats
-):
-    cpus = parts["cpus"]
-    mbs = parts["mbs"]
-    rams = parts["rams"]
-    storages = parts["storages"]
-    gpus = parts["gpus"]
-    cases = parts["cases"]
-    psus = parts["psus"]
-    coolers = parts["coolers"]
-
-    feasible: List[Dict[str, object]] = []
-    for cpu in cpus:
-        if _part_price(cpu) > budget_max:
+def _iter_cpu_mb_ram(parts: Mapping[str, List[object]], budget_max: float):
+    for cpu in parts["cpus"]:
+        if part_price(cpu) > budget_max:
             continue
-        for mb in mbs:
-            if _sum_price([cpu, mb]) > budget_max:
+        for mb in parts["mbs"]:
+            if sum_price([cpu, mb]) > budget_max:
                 continue
-            if not _is_compatible({"cpu": cpu, "mb": mb}):
+            if not is_compatible({"cpu": cpu, "mb": mb}):
                 continue
-            for ram in rams:
-                if _sum_price([cpu, mb, ram]) > budget_max:
+            for ram in parts["rams"]:
+                if sum_price([cpu, mb, ram]) > budget_max:
                     continue
-                if not _is_compatible({"cpu": cpu, "mb": mb, "ram": ram}):
+                if not is_compatible({"cpu": cpu, "mb": mb, "ram": ram}):
                     continue
-                for gpu in gpus:
-                    if _sum_price([cpu, mb, ram, gpu]) > budget_max:
-                        continue
-                    for case in cases:
-                        if _sum_price([cpu, mb, ram, gpu, case]) > budget_max:
-                            continue
-                        if not _is_compatible({"mb": mb, "gpu": gpu, "case": case}):
-                            continue
-                        for psu in psus:
-                            if _sum_price([cpu, mb, ram, gpu, case, psu]) > budget_max:
-                                continue
-                            if not _is_compatible(
-                                {"cpu": cpu, "gpu": gpu, "case": case, "psu": psu}
-                            ):
-                                continue
-                            for storage in storages:
-                                if (
-                                    _sum_price([cpu, mb, ram, gpu, case, psu, storage])
-                                    > budget_max
-                                ):
-                                    continue
-                                for cooler in coolers:
-                                    total_price = _sum_price(
-                                        [cpu, mb, ram, gpu, case, psu, storage, cooler]
-                                    )
-                                    if (
-                                        total_price > budget_max
-                                        or total_price < budget_min
-                                    ):
-                                        continue
+                yield cpu, mb, ram
 
-                                    payload = _as_parts_payload(
-                                        cpu, mb, ram, storage, gpu, case, psu, cooler
-                                    )
-                                    if not _is_compatible(payload):
-                                        continue
 
-                                    feasible.append(
-                                        _build_candidate_item(
-                                            cpu=cpu,
-                                            mb=mb,
-                                            ram=ram,
-                                            storage=storage,
-                                            gpu=gpu,
-                                            case=case,
-                                            psu=psu,
-                                            cooler=cooler,
-                                            total_price=total_price,
-                                            workload=workload,
-                                            stats=stats,
-                                        )
-                                    )
-                                    if _is_limit_reached(feasible):
-                                        break
-                                if _is_limit_reached(feasible):
-                                    break
-                            if _is_limit_reached(feasible):
-                                break
-                        if _is_limit_reached(feasible):
-                            break
-                    if _is_limit_reached(feasible):
-                        break
-                if _is_limit_reached(feasible):
-                    break
-            if _is_limit_reached(feasible):
-                break
-        if _is_limit_reached(feasible):
-            break
+def _iter_gpu_case_psu(parts: Mapping[str, List[object]], cpu, mb, ram, budget_max: float):
+    for gpu in parts["gpus"]:
+        if sum_price([cpu, mb, ram, gpu]) > budget_max:
+            continue
+        for case in parts["cases"]:
+            if sum_price([cpu, mb, ram, gpu, case]) > budget_max:
+                continue
+            if not is_compatible({"mb": mb, "gpu": gpu, "case": case}):
+                continue
+            for psu in parts["psus"]:
+                if sum_price([cpu, mb, ram, gpu, case, psu]) > budget_max:
+                    continue
+                if not is_compatible({"cpu": cpu, "gpu": gpu, "case": case, "psu": psu}):
+                    continue
+                yield gpu, case, psu
+
+
+def _iter_storage_cooler_candidates(
+    parts: Mapping[str, List[object]],
+    cpu,
+    mb,
+    ram,
+    gpu,
+    case,
+    psu,
+    budget_min: float,
+    budget_max: float,
+):
+    for storage in parts["storages"]:
+        if sum_price([cpu, mb, ram, gpu, case, psu, storage]) > budget_max:
+            continue
+        for cooler in parts["coolers"]:
+            total_price = sum_price([cpu, mb, ram, gpu, case, psu, storage, cooler])
+            if total_price > budget_max or total_price < budget_min:
+                continue
+            payload = as_parts_payload(
+                {
+                    "cpu": cpu,
+                    "mb": mb,
+                    "ram": ram,
+                    "storage": storage,
+                    "gpu": gpu,
+                    "case": case,
+                    "psu": psu,
+                    "cooler": cooler,
+                }
+            )
+            if not is_compatible(payload):
+                continue
+            yield storage, cooler, total_price
+
+
+def _collect_feasible_candidates(parts, workload: str, budget_min: float, budget_max: float, stats):
+    feasible: List[Dict[str, object]] = []
+    for cpu, mb, ram in _iter_cpu_mb_ram(parts, budget_max):
+        for gpu, case, psu in _iter_gpu_case_psu(parts, cpu, mb, ram, budget_max):
+            for storage, cooler, total_price in _iter_storage_cooler_candidates(
+                parts, cpu, mb, ram, gpu, case, psu, budget_min, budget_max
+            ):
+                feasible.append(
+                    _build_candidate_item(
+                        cpu=cpu,
+                        mb=mb,
+                        ram=ram,
+                        storage=storage,
+                        gpu=gpu,
+                        case=case,
+                        psu=psu,
+                        cooler=cooler,
+                        total_price=total_price,
+                        workload=workload,
+                        stats=stats,
+                    )
+                )
+                if is_limit_reached(feasible):
+                    return feasible
     return feasible
 
 
 def _post_process_candidates(feasible: List[Dict[str, object]]):
+    """按性价比粗筛后再按性能排序，并生成 0-100 的性价比展示分。"""
     feasible.sort(key=lambda x: x["combo_value"], reverse=True)
     cutoff = int(len(feasible) * 0.7)
     trimmed = feasible[: max(cutoff, 1)]
@@ -458,9 +355,10 @@ def _post_process_candidates(feasible: List[Dict[str, object]]):
 
 
 def recommend_builds(params: RecommendationRequest) -> Dict[str, object]:
-    workload = _normalize_workload(params.workload)
+    """推荐主入口：加载候选、枚举可行组合、打分排序并返回 Top-K 结果。"""
+    workload = normalize_workload(params.workload)
     budget_min, budget_max = _normalize_budget_range(params)
-    top_k = max(1, _to_int(params.top_k, 3))
+    top_k = max(1, to_int(params.top_k, 3))
 
     candidate_parts = _load_candidate_parts(params)
     if not _has_required_candidate_parts(candidate_parts):

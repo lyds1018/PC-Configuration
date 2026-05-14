@@ -7,7 +7,10 @@ from .utils import read, to_upper
 
 
 def _derive_storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
-    """从配件数据导出支持的存储设备总数"""
+    """
+    统一生成存储与内存总量统计。
+    优先使用上游已给出的 totals；缺失时从 storages 动态推导。
+    """
     if "totals" in parts and isinstance(parts["totals"], dict):
         values = parts["totals"]
         return {
@@ -49,6 +52,7 @@ def run_checks(parts: Dict[str, Any]) -> Dict[str, Any]:
     返回:
         {"ok": bool, "issues": list[str]} - ok 表示是否通过所有检查，issues 是问题列表
     """
+    # 约定缺失配件时传空字典，兼容各子检查函数的读取逻辑。
     cpu = parts.get("cpu", {})
     mb = parts.get("mb", {})
     ram = parts.get("ram", {})
@@ -59,6 +63,7 @@ def run_checks(parts: Dict[str, Any]) -> Dict[str, Any]:
 
     totals = _derive_storage_totals(parts)
 
+    # 固定顺序执行检查，保证输出问题列表稳定可预期。
     issues: List[str] = []
     issues += all_checks.check_cpu_mb_socket(cpu, mb)
     issues += all_checks.check_cpu_ram(cpu, ram)

@@ -80,7 +80,7 @@ def select_part(request, part_type, pk):
     if not config:
         return False
 
-    # 验证配件 ID 是否存在（如果不存在会抛出 404）
+    # 验证配件 ID 是否存在
     model = config["model"]
     get_object_or_404(model, id=pk)
 

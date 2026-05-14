@@ -30,7 +30,7 @@ COMPATIBILITY_FIELD_MAP = {
 
 
 def default_compatibility():
-    """返回默认兼容性结果"""
+    """返回默认兼容性结果（未触发校验时使用）。"""
     return {"ok": True, "issues": []}
 
 
@@ -67,7 +67,10 @@ def derive_storage_totals(selected, selected_ids):
 
 
 def build_compatibility_payload(selected, selected_ids):
-    """构建兼容性检查的payload"""
+    """
+    将已选配件对象映射为兼容性模块可识别的结构化 payload。
+    兼容性模块与 Django Model 解耦，只依赖该标准结构。
+    """
 
     payload = {
         "cpu": {},
@@ -117,7 +120,7 @@ def estimate_wattage(selected):
 
 
 def check_compatibility(selected, selected_ids, can_check):
-    """执行兼容性检查"""
+    """根据前置条件决定是否执行兼容性检查。"""
     if not can_check:
         return default_compatibility()
 

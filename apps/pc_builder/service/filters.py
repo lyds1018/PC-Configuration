@@ -97,7 +97,11 @@ def apply_column_filters(
     numeric_filters,
     enum_filters,
 ):
-    """应用列过滤器（数值范围和枚举）"""
+    """
+    按列配置应用过滤：
+    - 数值列：生成最小/最大范围并执行区间筛选
+    - 文本列：在可控枚举范围内生成多选过滤器
+    """
     for field_key, label in config["columns"]:
         try:
             field_obj = model._meta.get_field(field_key)
@@ -164,7 +168,7 @@ def apply_column_filters(
 
 
 def apply_keyword_search(queryset, q, search_fields):
-    """应用关键字搜索"""
+    """对配置的搜索字段执行 OR 语义的关键字模糊匹配。"""
     if not q:
         return queryset
 

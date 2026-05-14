@@ -4,14 +4,15 @@ import json
 import re
 from typing import Any
 
-# 板型等级排序
+"""兼容性检查通用工具：字段读取、类型转换和规则辅助函数。"""
+
+# 板型等级排序（数值越大表示规格越“宽容”）。
 FORM_ORDER = {"ITX": 1, "MATX": 2, "M-ATX": 2, "MICROATX": 2, "MICRO ATX": 2, "ATX": 3}
-# 电源规格等级排序
+# 电源规格等级排序。
 PSU_FORM_ORDER = {"SFX": 1, "ATX": 2}
-# DDR 代数正则表达式
+# DDR 代数提取正则。
 DDR_RE = re.compile(r"DDR\s*(\d+)", re.IGNORECASE)
 
-# 数据读取函数
 def read(source: Any, *fields: str) -> Any:
     """从字典或对象中读取字段值"""
     if source is None:
@@ -24,7 +25,6 @@ def read(source: Any, *fields: str) -> Any:
     return None
 
 
-# 数据转换函数
 def to_text(value: Any) -> str:
     """转换为字符串"""
     return str(value).strip() if value is not None else ""
@@ -78,7 +78,6 @@ def parse_list(value: Any) -> list[str]:
             normalized.append(cleaned.upper())
     return normalized
 
-# 数值提取函数
 def ddr_rank(value: Any) -> int | None:
     """提取 DDR 代数 (如 DDR4 → 4)"""
     text = to_upper(value)
@@ -121,7 +120,6 @@ def max_radiator(value: Any) -> int | None:
     return max(sizes) if sizes else None
 
 
-# 其他工具函数
 def contains_ddr(supported: Any, target: Any) -> bool:
     """返回 DDR 检查结果"""
     target_upper = to_upper(target)

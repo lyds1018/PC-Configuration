@@ -2,8 +2,13 @@ import json
 import os
 from typing import Dict, Mapping, Sequence
 
-BASE_URL = "https://api.moonshot.cn/v1"
-MODEL = "kimi-k2.5"
+MODEL = "deepseek-v4-flash"
+BASE_URL = "https://api.deepseek.com"
+TEMPERATURE = 0.6
+THINKING_TYPE = "disabled"
+API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+CLIENT = None
+MAX_PROMPT_COMBOS = 5
 
 
 def _safe_float(value) -> float:
@@ -24,11 +29,7 @@ def _combo_to_text(index: int, item: Mapping[str, object]) -> str:
         f"CPU={getattr(parts.get('cpu'), 'name', '')}, "
         f"GPU={getattr(parts.get('gpu'), 'name', '')}, "
         f"内存={getattr(parts.get('ram'), 'name', '')}, "
-        f"存储={getattr(parts.get('storage'), 'name', '')}, "
-        f"主板={getattr(parts.get('mb'), 'name', '')}, "
-        f"电源={getattr(parts.get('psu'), 'name', '')}, "
-        f"机箱={getattr(parts.get('case'), 'name', '')}, "
-        f"散热={getattr(parts.get('cooler'), 'name', '')}"
+        f"存储={getattr(parts.get('storage'), 'name', '')}"
     )
 
 
@@ -46,16 +47,19 @@ def build_agent_prompt(
         "gpu_chip_brand": form_data.get("gpu_chip_brand", ""),
         "top_k": form_data.get("top_k", 3),
     }
-    combos = [_combo_to_text(i + 1, item) for i, item in enumerate(recommendations)]
+    brief_recommendations = recommendations[:MAX_PROMPT_COMBOS]
+    combos = [
+        _combo_to_text(i + 1, item) for i, item in enumerate(brief_recommendations)
+    ]
 
     # 输出固定 JSON，便于页面稳定渲染。
     return (
-        "你是 DIY 装机推荐助手。请结合用户偏好与候选组合，输出推荐结果。\n"
+        "你是 DIY 装机推荐助手，请基于用户偏好与候选组合给出推荐。\n"
         "要求：\n"
         "1) 从候选中推荐最多3套，按优先级排序。\n"
-        "2) 每套写简短理由（强调场景匹配、预算、性能和性价比权衡）。\n"
-        "3) 给一个总建议（例如最均衡方案/最省钱方案/最强性能方案）。\n"
-        "4) 仅输出 JSON，不要输出多余文本。\n"
+        "2) 每套理由控制在一句话，突出场景匹配、预算、性能或性价比。\n"
+        "3) 给一个总体建议。\n"
+        "4) 仅输出 JSON。\n"
         "JSON 格式：\n"
         "{\n"
         '  "summary": "总体建议",\n'
@@ -65,7 +69,7 @@ def build_agent_prompt(
         "  ]\n"
         "}\n\n"
         f"用户偏好:\n{json.dumps(prefs, ensure_ascii=False)}\n\n"
-        "候选组合:\n" + "\n".join(combos)
+        f"候选组合(仅前{MAX_PROMPT_COMBOS}条):\n" + "\n".join(combos)
     )
 
 
@@ -86,39 +90,80 @@ def _parse_agent_json(text: str) -> Dict[str, object]:
         return {}
 
 
+def _load_openai_class():
+    try:
+        from openai import OpenAI
+    except ImportError:
+        return None
+    return OpenAI
+
+
+def get_agent_client():
+    """
+    获取模块级复用 client。
+    首次调用时懒加载，后续请求复用，减少重复初始化开销。
+    """
+    global CLIENT
+    if CLIENT is not None:
+        return CLIENT
+
+    api_key = os.getenv(API_KEY_ENV_VAR, "").strip()
+    if not api_key:
+        return None
+
+    openai_cls = _load_openai_class()
+    if openai_cls is None:
+        return None
+
+    CLIENT = openai_cls(api_key=api_key, base_url=BASE_URL)
+    return CLIENT
+
+
+def warmup_agent_client() -> bool:
+    """
+    预热智能体 client：在页面进入阶段提前完成初始化。
+    失败时返回 False，不抛异常，不影响主流程。
+    """
+    try:
+        return get_agent_client() is not None
+    except Exception:
+        return False
+
+
 def run_agent_recommendation(
     user_text: str,
     form_data: Mapping[str, object],
     recommendations: Sequence[Mapping[str, object]],
 ) -> Dict[str, object]:
-    api_key = os.getenv("MOONSHOT_API_KEY", "").strip()
+    api_key = os.getenv(API_KEY_ENV_VAR, "").strip()
     if not api_key:
-        return {"enabled": False, "reason": "未配置 MOONSHOT_API_KEY，已使用规则推荐。"}
+        return {
+            "enabled": False,
+            "reason": "未配置 " + API_KEY_ENV_VAR + "，已使用规则推荐。",
+        }
     if not recommendations:
         return {"enabled": False, "reason": "暂无候选组合，无法进行智能体分析。"}
 
     model = MODEL
     prompt = build_agent_prompt(user_text, form_data, recommendations)
-    try:
-        from openai import OpenAI
-    except ImportError:
+    client = get_agent_client()
+    if client is None:
         return {"enabled": False, "reason": "未安装 openai SDK，已回退规则推荐。"}
 
     try:
-        client = OpenAI(api_key=api_key, base_url=BASE_URL)
         completion = client.chat.completions.create(
             model=model,
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "你是 Kimi，由 Moonshot AI 提供的人工智能助手。"
-                        "你将作为装机推荐顾问，输出安全、准确、结构化的建议。"
+                        "你将作为装机推荐顾问，为用户输出安全、准确、结构化的建议。"
                     ),
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=1.0,
+            temperature=TEMPERATURE,
+            extra_body={"thinking": {"type": THINKING_TYPE}},
         )
         output_text = ""
         if completion and completion.choices:
