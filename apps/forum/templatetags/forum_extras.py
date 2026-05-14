@@ -1,3 +1,9 @@
+"""论坛模板扩展过滤器
+
+当前提供轻量 Markdown 渲染能力：
+支持标题、列表、粗斜体、行内代码、链接与图片，并保证 HTML 转义安全
+"""
+
 import html
 import re
 
@@ -8,6 +14,7 @@ register = template.Library()
 
 
 def _render_inline(text):
+    """渲染段落内联标记，不处理块级结构。"""
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<em>\1</em>", text)
@@ -38,6 +45,7 @@ def _render_inline(text):
 
 @register.filter(name="markdown_safe")
 def markdown_safe(value):
+    """将用户输入的简化 Markdown 转为安全 HTML。"""
     source = str(value or "").replace("\r\n", "\n")
     escaped = html.escape(source)
 

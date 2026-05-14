@@ -1,3 +1,11 @@
+"""论坛页面与交互视图
+
+职责划分：
+1. 论坛首页数据聚合（列表、详情、个人页、审核页）
+2. 帖子/评论/点赞/收藏/关注等写操作入口
+3. 上传图片等编辑器辅助接口
+"""
+
 from collections import defaultdict
 from datetime import timedelta
 import re
@@ -30,6 +38,7 @@ FORUM_TAB_FOLLOWING = "following"
 FORUM_TAB_DETAIL = "detail"
 FORUM_TAB_MODERATION = "moderation"
 
+# 个人主页视图模式。
 PROFILE_VIEW_OVERVIEW = "overview"
 PROFILE_VIEW_POSTS = "posts"
 PROFILE_VIEW_LIKES = "likes"
@@ -40,6 +49,7 @@ FORUM_SORT_VIEWS = "views"
 FORUM_SORT_LIKES = "likes"
 FORUM_SORT_FAVORITES = "favorites"
 
+# tab 与板块、排序参数与 ORM 排序字段的映射表。
 TAB_TO_SECTION = {
     FORUM_TAB_EXPERIENCE: ForumPost.SECTION_EXPERIENCE,
     FORUM_TAB_HELP: ForumPost.SECTION_HELP,
@@ -56,6 +66,7 @@ MAX_EDITOR_IMAGE_SIZE = 5 * 1024 * 1024
 
 
 def _redirect_next(request, default_tab=FORUM_TAB_ALL):
+    """优先跳转回安全的 next 地址，失败时回退到论坛首页默认 tab。"""
     next_url = (request.POST.get("next") or "").strip()
     if next_url.startswith("/forum"):
         return redirect(next_url)
@@ -63,6 +74,7 @@ def _redirect_next(request, default_tab=FORUM_TAB_ALL):
 
 
 def _parse_tag_names(raw_tags):
+    """从输入文本中提取标签名，去重、裁剪并限制数量。"""
     chunks = re.findall(r"[#＃]([^\s#＃,，]+)", raw_tags or "")
     deduped = []
     seen = set()
@@ -78,6 +90,7 @@ def _parse_tag_names(raw_tags):
 
 
 def _extract_post_form(request):
+    """统一读取并清洗帖子表单字段。"""
     return {
         "title": (request.POST.get("title") or "").strip(),
         "section": (request.POST.get("section") or "").strip(),

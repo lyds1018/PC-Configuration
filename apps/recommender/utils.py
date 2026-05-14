@@ -1,3 +1,5 @@
+"""推荐模块通用工具函数"""
+
 from typing import Dict, List, Mapping
 
 from compatibility import run_checks
@@ -37,6 +39,7 @@ def normalize_brand(value: str) -> str:
 
 
 def normalize_workload(value: str) -> str:
+    """将用途字段归一化到内部常量，无法识别时默认 game。"""
     text = (value or "").strip().lower()
     if text in {WORKLOAD_GAME, "游戏"}:
         return WORKLOAD_GAME
@@ -74,10 +77,12 @@ def as_parts_payload(parts: Mapping[str, object]) -> Dict[str, object]:
 
 
 def part_price(part) -> float:
+    """读取单个配件价格并容错转换。"""
     return to_float(getattr(part, "price", 0.0), 0.0)
 
 
 def sum_price(parts: List[object]) -> float:
+    """计算配件列表总价。"""
     return sum(part_price(p) for p in parts if p is not None)
 
 
@@ -112,6 +117,7 @@ def obj_to_score_dict(obj) -> Dict[str, float]:
 
 
 def is_compatible(parts: Mapping[str, object]) -> bool:
+    """调用兼容性引擎并返回是否通过。"""
     return run_checks(dict(parts)).get("ok", False)
 
 

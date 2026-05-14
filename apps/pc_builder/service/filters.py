@@ -1,3 +1,9 @@
+"""配件列表筛选与排序工具
+
+本模块封装品牌筛选、枚举筛选、数值区间筛选、关键词搜索和排序参数标准化，
+用于降低视图层复杂度并统一筛选行为
+"""
+
 from django.db.models import DecimalField, FloatField, IntegerField, Max, Min, Q
 
 BRAND_FIELD_NAMES = ("brand", "chip_brand", "card_brand")

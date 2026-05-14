@@ -1,10 +1,14 @@
+"""兼容性检查通用工具
+
+包含字段读取、容错类型转换、列表解析、等级映射等底层能力，
+用于屏蔽数据源格式差异，让上层规则函数聚焦业务判断本身
+"""
+
 from __future__ import annotations
 
 import json
 import re
 from typing import Any
-
-"""兼容性检查通用工具：字段读取、类型转换和规则辅助函数。"""
 
 # 板型等级排序（数值越大表示规格越“宽容”）。
 FORM_ORDER = {"ITX": 1, "MATX": 2, "M-ATX": 2, "MICROATX": 2, "MICRO ATX": 2, "ATX": 3}
@@ -14,7 +18,7 @@ PSU_FORM_ORDER = {"SFX": 1, "ATX": 2}
 DDR_RE = re.compile(r"DDR\s*(\d+)", re.IGNORECASE)
 
 def read(source: Any, *fields: str) -> Any:
-    """从字典或对象中读取字段值"""
+    """按字段候选顺序从字典或对象读取值，找不到时返回 None。"""
     if source is None:
         return None
     for field in fields:
@@ -52,7 +56,7 @@ def to_int(value: Any) -> int | None:
 
 
 def parse_list(value: Any) -> list[str]:
-    """将字符串或列表转换为大写字符串列表，支持逗号、斜杠、管道等分隔符"""
+    """将字符串或列表统一转换为大写字符串列表，兼容多种分隔格式。"""
     if value in (None, ""):
         return []
     if isinstance(value, list):
@@ -121,7 +125,7 @@ def max_radiator(value: Any) -> int | None:
 
 
 def contains_ddr(supported: Any, target: Any) -> bool:
-    """返回 DDR 检查结果"""
+    """判断目标 DDR 类型是否包含在受支持类型中。"""
     target_upper = to_upper(target)
     if not target_upper:
         return True

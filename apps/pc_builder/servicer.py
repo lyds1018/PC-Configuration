@@ -1,3 +1,9 @@
+"""装机模块服务层
+
+负责组装页面上下文、处理选件请求、并集中调用筛选与兼容性子服务
+视图层只保留请求分发，业务逻辑尽量落在这里
+"""
+
 from .catalog import (
     BUILD_CATEGORIES,
     COMPATIBILITY_REQUIRED_KEYS,
@@ -21,8 +27,7 @@ from .service import (
 
 def build_builder_context(request):
     """
-    整合用户已选配件、兼容性检查结果、价格估算等信息，
-    用于渲染装机主页面
+    整合装机主页面所需的全部动态信息。
 
     返回:
         dict: 包含以下键的上下文字典
@@ -67,8 +72,8 @@ def build_builder_context(request):
 
 def select_part(request, part_type, pk):
     """
-    验证配件 ID 有效性后，将配件选择保存到用户 session 中
-    对于存储设备，还会记录用户选择的数量
+    处理“选择配件”动作并落盘到 session。
+    对 storage 类别会额外记录数量字段。
 
     返回:
         bool: 选择成功返回 True，配件类型无效返回 False

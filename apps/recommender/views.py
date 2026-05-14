@@ -1,3 +1,8 @@
+"""推荐模块视图层
+
+负责表单参数接收、偏好归一化、推荐结果渲染与 JSON 数据接口输出
+"""
+
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -40,6 +45,7 @@ def _extract_form_data(request):
 
 
 def _agent_value(agent_result, key, default=""):
+    """安全读取 AI 助手输出字段，统一做字符串清洗。"""
     if not isinstance(agent_result, dict):
         return default
     return str(agent_result.get(key, default)).strip()
@@ -50,6 +56,7 @@ def _normalize_chip_brand(chip_brand: str) -> str:
 
 
 def _normalize_form_data(form_data, parse_result):
+    """融合显式表单输入与自由文本解析结果。"""
     budget_min = form_data["budget_min"] or parse_result.get("budget_min", "")
     budget_max = form_data["budget_max"] or parse_result.get("budget_max", "")
     workload = form_data["workload"] or parse_result.get("workload", WORKLOAD_GAME)
@@ -67,6 +74,7 @@ def _normalize_form_data(form_data, parse_result):
 
 
 def _extract_choice_reason_map(agent_result):
+    """提取 AI 返回的候选理由映射：combo_index -> reason。"""
     mapping = {}
     choices = agent_result.get("choices", []) if isinstance(agent_result, dict) else []
     for choice in choices:

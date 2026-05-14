@@ -1,3 +1,8 @@
+"""兼容性检查编排入口
+
+本模块负责聚合各条检查规则，并保证输出结构、执行顺序稳定
+"""
+
 from __future__ import annotations
 
 from typing import Any, Dict, List
@@ -44,13 +49,14 @@ def _derive_storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
 
 def run_checks(parts: Dict[str, Any]) -> Dict[str, Any]:
     """
-    运行所有兼容性检查
+    运行全部兼容性规则并聚合结果。
 
     参数:
         parts: 配件字典，包含 cpu, mb, ram, gpu, case, psu, cooler, storages, totals
 
     返回:
-        {"ok": bool, "issues": list[str]} - ok 表示是否通过所有检查，issues 是问题列表
+        {"ok": bool, "issues": list[str]}
+        其中 ok 表示是否通过全部检查，issues 为按固定顺序汇总的问题列表。
     """
     # 约定缺失配件时传空字典，兼容各子检查函数的读取逻辑。
     cpu = parts.get("cpu", {})

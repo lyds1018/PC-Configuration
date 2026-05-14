@@ -1,3 +1,5 @@
+"""推荐模块路由定义"""
+
 from django.urls import path
 
 from . import views

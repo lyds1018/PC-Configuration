@@ -1,3 +1,9 @@
+"""推荐解释生成器
+
+将候选组合压缩为提示词，调用模型生成可读推荐理由，
+并解析为页面可消费的结构化 JSON
+"""
+
 import json
 import os
 from typing import Dict, Mapping, Sequence
@@ -19,6 +25,7 @@ def _safe_float(value) -> float:
 
 
 def _combo_to_text(index: int, item: Mapping[str, object]) -> str:
+    """将候选组合转为紧凑文本，供提示词拼接。"""
     parts = item.get("parts", {})
     scores = item.get("scores", {})
     return (
@@ -38,6 +45,7 @@ def build_agent_prompt(
     form_data: Mapping[str, object],
     recommendations: Sequence[Mapping[str, object]],
 ) -> str:
+    """构建要求严格 JSON 输出的提示词模板。"""
     prefs = {
         "user_text": user_text or "",
         "budget_min": form_data.get("budget_min", ""),
@@ -74,6 +82,7 @@ def build_agent_prompt(
 
 
 def _parse_agent_json(text: str) -> Dict[str, object]:
+    """尽量稳健地从模型输出中解析 JSON。"""
     text = (text or "").strip()
     if not text:
         return {}

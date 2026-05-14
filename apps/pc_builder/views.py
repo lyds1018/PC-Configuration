@@ -1,3 +1,8 @@
+"""装机模块视图入口
+
+视图层仅负责鉴权与请求分发，具体业务逻辑下沉到 servicer 层
+"""
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 

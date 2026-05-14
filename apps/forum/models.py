@@ -1,13 +1,18 @@
-''' 论坛模块数据模型 '''
+"""论坛模块数据模型定义
+
+该模块描述帖子、评论、互动关系（点赞/收藏/关注）及其约束，
+并通过索引与唯一约束保障查询效率与数据一致性
+"""
 
 from django.contrib.auth import get_user_model
 from django.db import models
 
-# 获取用户模型
+# 使用项目当前生效的用户模型，避免写死 auth.User。
 User = get_user_model()
 
 
 class ForumTag(models.Model):
+    """帖子标签。用于话题聚合与检索。"""
     name = models.CharField(max_length=30, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -20,6 +25,7 @@ class ForumTag(models.Model):
 
 
 class ForumPost(models.Model):
+    """论坛帖子主体，包含发布状态与统计计数字段。"""
     SECTION_EXPERIENCE = "experience"
     SECTION_HELP = "help"
     SECTION_NEWS = "news"
@@ -78,6 +84,7 @@ class ForumPost(models.Model):
 
 
 class ForumComment(models.Model):
+    """帖子评论，支持 parent 字段形成一层回复关系。"""
     post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_comments")
     content = models.TextField()
@@ -99,6 +106,7 @@ class ForumComment(models.Model):
 
 
 class ForumPostLike(models.Model):
+    """帖子点赞关系表（用户-帖子 唯一）。"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_post_likes")
     post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name="likes")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -111,6 +119,7 @@ class ForumPostLike(models.Model):
 
 
 class ForumPostFavorite(models.Model):
+    """帖子收藏关系表（用户-帖子 唯一）。"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_post_favorites")
     post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name="favorites")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -123,6 +132,7 @@ class ForumPostFavorite(models.Model):
 
 
 class ForumUserFollow(models.Model):
+    """用户关注关系表，限制不可自关注。"""
     follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_following")
     followee = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_followers")
     created_at = models.DateTimeField(auto_now_add=True)

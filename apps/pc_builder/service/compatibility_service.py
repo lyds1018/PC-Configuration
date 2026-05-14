@@ -1,3 +1,11 @@
+"""装机页兼容性服务
+
+职责：
+1. 从已选配件抽取兼容性相关字段；
+2. 计算存储/内存数量统计；
+3. 调用 compatibility 模块并返回统一检查结果
+"""
+
 from compatibility import run_checks
 
 from .utils import as_int, read_quantity
@@ -35,12 +43,12 @@ def default_compatibility():
 
 
 def extract_part_payload(part, field_names):
-    """提取配件的兼容性相关字段"""
+    """按字段白名单抽取配件属性，避免把无关数据传入检查器。"""
     return {field_name: getattr(part, field_name) for field_name in field_names}
 
 
 def derive_storage_totals(selected, selected_ids):
-    """推导存储设备总数"""
+    """根据存储类型与数量推导总占用（M.2 / SATA / HDD / SATA SSD）。"""
     storage = selected.get("storage")
     totals = {
         "total_m2": 0,
@@ -110,7 +118,7 @@ def build_compatibility_payload(selected, selected_ids):
 
 
 def estimate_wattage(selected):
-    """估算功耗（CPU TDP + GPU TDP）"""
+    """估算核心平台功耗，供页面展示参考（CPU TDP + GPU TDP）。"""
     if not selected.get("cpu") or not selected.get("gpu"):
         return None
 

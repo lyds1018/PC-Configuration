@@ -1,8 +1,14 @@
+"""兼容性规则集合
+
+本模块只负责“单条规则”的判断，每个函数输入若干配件对象，
+输出该规则对应的问题列表（无问题则返回空列表）
+"""
+
 from __future__ import annotations
 
 from typing import Any
 
-# 引入工具函数
+# 统一复用解析与规范化工具，避免在规则函数中重复处理原始字段。
 from .utils import (
     contains_ddr,
     form_rank,
@@ -17,7 +23,7 @@ from .utils import (
 
 
 def check_cpu_mb_socket(cpu: Any, mb: Any) -> list[str]:
-    """检查 CPU 接口与主板接口是否匹配"""
+    """检查 CPU 与主板的插槽接口是否一致。"""
     cpu_socket = to_upper(read(cpu, "socket"))
     mb_socket = to_upper(read(mb, "socket"))
     if not cpu_socket or not mb_socket:
@@ -28,7 +34,7 @@ def check_cpu_mb_socket(cpu: Any, mb: Any) -> list[str]:
 
 
 def check_cpu_ram(cpu: Any, ram: Any) -> list[str]:
-    """检查 CPU 与内存兼容性（类型和频率）"""
+    """检查 CPU 与内存在类型与频率上的兼容性。"""
     issues: list[str] = []
 
     cpu_memory_type = read(cpu, "memory_type")
@@ -53,7 +59,7 @@ def check_cpu_ram(cpu: Any, ram: Any) -> list[str]:
 
 
 def check_mb_case(mb: Any, case: Any) -> list[str]:
-    """检查主板板型与机箱是否兼容"""
+    """检查主板板型是否可安装进机箱。"""
     mb_form = read(mb, "form")
     case_form = read(case, "form", "mb_form")
     mb_rank = form_rank(mb_form)
@@ -68,7 +74,7 @@ def check_mb_case(mb: Any, case: Any) -> list[str]:
 
 
 def check_mb_ram(mb: Any, ram: Any) -> list[str]:
-    """检查主板与内存兼容性"""
+    """检查主板与内存在代际和频率上的匹配关系。"""
     issues: list[str] = []
 
     mb_memory_type = read(mb, "memory_type")
@@ -87,7 +93,7 @@ def check_mb_ram(mb: Any, ram: Any) -> list[str]:
 
 
 def check_gpu_case(gpu: Any, case: Any) -> list[str]:
-    """检查显卡长度是否超过机箱限制"""
+    """检查显卡长度是否超过机箱显卡限长。"""
     gpu_length = to_int(read(gpu, "length"))
     case_limit = to_int(read(case, "gpu_length"))
     if gpu_length is None or case_limit is None:
@@ -98,7 +104,7 @@ def check_gpu_case(gpu: Any, case: Any) -> list[str]:
 
 
 def check_cooler_case(cooler: Any, case: Any) -> list[str]:
-    """检查散热器与机箱兼容性（风冷高度/水冷规格）"""
+    """检查散热器与机箱在风冷限高/水冷冷排规格上的兼容性。"""
     cooler_type = to_upper(read(cooler, "type", "cooler_type"))
     if not cooler_type:
         return []
@@ -133,7 +139,7 @@ def check_cooler_case(cooler: Any, case: Any) -> list[str]:
 
 
 def check_psu_case(psu: Any, case: Any) -> list[str]:
-    """检查电源规格与机箱电源位是否兼容"""
+    """检查电源规格是否受机箱电源位支持。"""
     psu_form = read(psu, "form", "type")
     case_psu_form = read(case, "psu_form")
     psu_rank = psu_form_rank(psu_form)
@@ -148,7 +154,7 @@ def check_psu_case(psu: Any, case: Any) -> list[str]:
 
 
 def check_power(cpu: Any, gpu: Any, psu: Any) -> list[str]:
-    """检查电源功率是否足够（CPU TDP + GPU TDP）* 1.3"""
+    """检查电源额定功率是否足够，按 (CPU TDP + GPU TDP) * 1.3 估算。"""
     cpu_tdp = to_float(read(cpu, "tdp"))
     gpu_tdp = to_float(read(gpu, "tdp"))
     psu_wattage = to_float(read(psu, "wattage"))
@@ -162,7 +168,7 @@ def check_power(cpu: Any, gpu: Any, psu: Any) -> list[str]:
 
 
 def check_storage_totals(mb: Any, case: Any, totals: dict[str, int]) -> list[str]:
-    """检查存储设备数量是否超过主板和机箱限制"""
+    """检查存储设备数量是否超出主板接口数与机箱硬盘位上限。"""
     issues: list[str] = []
 
     total_m2 = totals.get("total_m2", 0)
@@ -189,7 +195,7 @@ def check_storage_totals(mb: Any, case: Any, totals: dict[str, int]) -> list[str
 
 
 def check_totals(mb: Any, totals: dict[str, int]) -> list[str]:
-    """检查内存插槽数量是否足够"""
+    """检查主板内存插槽是否满足当前内存条总数量。"""
     issues: list[str] = []
 
     total_memory = totals.get("total_memory", 0)

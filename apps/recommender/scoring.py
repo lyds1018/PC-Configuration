@@ -1,3 +1,9 @@
+"""装机推荐评分体系
+
+通过“特征提取 -> 归一化 -> 分项加权 -> 总分聚合”计算组合分数，
+并按不同 workload 应用不同权重策略
+"""
+
 import math
 from dataclasses import dataclass
 from typing import Dict, Iterable, Mapping
@@ -214,7 +220,7 @@ def build_normalization_stats(
     rams: Iterable[Mapping[str, float]],
     storages: Iterable[Mapping[str, float]],
 ) -> NormalizationStats:
-    """根据候选数据集构建归一化边界。"""
+    """根据候选集构建归一化边界，避免不同量纲直接比较。"""
     return NormalizationStats(
         cpu=_build_bounds(cpus, _cpu_features),
         gpu=_build_bounds(gpus, _gpu_features),
@@ -293,8 +299,8 @@ def score_build(
     workload: str,
 ) -> Dict[str, float]:
     """
-    计算整机性能分数。
-    返回值范围约为 [0, 1]，包含各子项分数与总分。
+    计算整机综合分数。
+    返回值约在 [0, 1]，包含 CPU/GPU/内存/存储子分与总分。
     """
     workload_key = _normalize_workload(workload)
     sub_weights = SUB_WEIGHTS[workload_key]

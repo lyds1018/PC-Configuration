@@ -1,3 +1,11 @@
+"""装机模块静态目录配置
+
+集中维护：
+1. 会话键名与页面展示分类；
+2. 兼容性检查前置所需配件类型；
+3. 各配件类型的模型、列表列定义与检索字段
+"""
+
 from .models import Case, Cpu, CpuCooler, Gpu, Mb, Psu, Ram, Storage
 
 SELECTION_SESSION_KEY = "pc_builder_selection"

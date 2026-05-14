@@ -1,3 +1,9 @@
+"""推荐引擎主流程
+
+包含参数解析、候选集加载、组合枚举、兼容性约束过滤、
+性能打分与排序后处理，是推荐结果生成的核心编排模块
+"""
+
 import re
 from dataclasses import dataclass
 from typing import Dict, List, Mapping
@@ -51,8 +57,8 @@ class RecommendationRequest:
 
 def parse_user_preferences(free_text: str) -> Dict[str, str]:
     """
-    从自然语言中提取用户偏好。
-    解析失败时返回空值，由后续显式表单字段兜底。
+    从自然语言中提取预算、用途与品牌偏好。
+    解析失败时返回空值，由显式表单字段兜底。
     """
     text = (free_text or "").strip()
     lowered = text.lower()
@@ -355,7 +361,7 @@ def _post_process_candidates(feasible: List[Dict[str, object]]):
 
 
 def recommend_builds(params: RecommendationRequest) -> Dict[str, object]:
-    """推荐主入口：加载候选、枚举可行组合、打分排序并返回 Top-K 结果。"""
+    """推荐主入口：在预算与兼容性约束下生成并返回 Top-K 组合。"""
     workload = normalize_workload(params.workload)
     budget_min, budget_max = _normalize_budget_range(params)
     top_k = max(1, to_int(params.top_k, 3))

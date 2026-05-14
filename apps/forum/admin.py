@@ -1,5 +1,6 @@
-"""
-论坛模块后台管理配置
+"""论坛模块后台管理配置
+
+以帖子模型为主入口，其它关系模型保持基础注册，便于运营排查
 """
 
 from django.contrib import admin
@@ -16,6 +17,7 @@ from .models import (
 
 @admin.register(ForumPost)
 class ForumPostAdmin(admin.ModelAdmin):
+    """论坛帖子后台展示与检索配置。"""
     # 列表显示的字段
     list_display = (
         "id",
