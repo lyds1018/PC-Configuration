@@ -99,6 +99,8 @@ class NormalizationStats:
     gpu: Dict[str, MinMax]
     ram: Dict[str, MinMax]
     storage: Dict[str, MinMax]
+    cpu_ee: MinMax
+    gpu_ee: MinMax
 
 
 def _to_float(value, default=0.0):
@@ -125,22 +127,15 @@ def _linear_norm(value: float, bounds: MinMax) -> float:
     return _clamp_0_1((value - bounds.min_value) / denom)
 
 
-def _log_norm(value: float, max_value: float) -> float:
-    if value <= 0 or max_value <= 1:
+def _positive_log_norm_with_min_shift(value: float, bounds: MinMax) -> float:
+    span = bounds.max_value - bounds.min_value
+    if span <= 0:
         return 0.0
-    denom = _safe_log(max_value)
-    if denom <= 0:
+    numerator = _safe_log(value - bounds.min_value + 1.0)
+    denominator = _safe_log(span + 1.0)
+    if denominator <= 0:
         return 0.0
-    return _clamp_0_1(_safe_log(value) / denom)
-
-
-def _inverse_log_norm(value: float, max_value: float) -> float:
-    if value <= 0 or max_value <= 1:
-        return 0.0
-    denom = _safe_log(max_value)
-    if denom <= 0:
-        return 0.0
-    return _clamp_0_1(1 - (_safe_log(value) / denom))
+    return _clamp_0_1(numerator / denominator)
 
 
 def _cpu_features(cpu: Mapping[str, float]) -> Dict[str, float]:
@@ -214,6 +209,23 @@ def _build_bounds(
     return bounds
 
 
+def _build_ee_bounds(
+    items: Iterable[Mapping[str, float]], score_key: str
+) -> MinMax:
+    values = []
+    for item in items:
+        score = _to_float(item.get(score_key))
+        tdp = _to_float(item.get("tdp"))
+        if tdp <= 0:
+            values.append(0.0)
+            continue
+        values.append(score / tdp)
+
+    if not values:
+        return MinMax(0.0, 0.0)
+    return MinMax(min(values), max(values))
+
+
 def build_normalization_stats(
     cpus: Iterable[Mapping[str, float]],
     gpus: Iterable[Mapping[str, float]],
@@ -226,12 +238,21 @@ def build_normalization_stats(
         gpu=_build_bounds(gpus, _gpu_features),
         ram=_build_bounds(rams, _ram_features),
         storage=_build_bounds(storages, _storage_features),
+        cpu_ee=_build_ee_bounds(cpus, "multi_score"),
+        gpu_ee=_build_ee_bounds(gpus, "gaming_score"),
     )
 
 
 def _normalize_cpu(
     features: Dict[str, float], stats: NormalizationStats
 ) -> Dict[str, float]:
+    tdp = features["tdp"]
+    multi_score = features["multi_score"]
+    ee_cpu = (multi_score / tdp) if tdp > 0 else 0.0
+    ee_norm = _linear_norm(ee_cpu, stats.cpu_ee)
+    multi_score_max = stats.cpu["multi_score"].max_value
+    perf_ratio = (multi_score / multi_score_max) if multi_score_max > 0 else 0.0
+
     return {
         "single_score": _linear_norm(
             features["single_score"], stats.cpu["single_score"]
@@ -239,13 +260,20 @@ def _normalize_cpu(
         "multi_score": _linear_norm(features["multi_score"], stats.cpu["multi_score"]),
         "bb": _linear_norm(features["bb"], stats.cpu["bb"]),
         "ct": _linear_norm(features["ct"], stats.cpu["ct"]),
-        "tdp": _inverse_log_norm(features["tdp"], stats.cpu["tdp"].max_value),
+        "tdp": _clamp_0_1(ee_norm * perf_ratio),
     }
 
 
 def _normalize_gpu(
     features: Dict[str, float], stats: NormalizationStats
 ) -> Dict[str, float]:
+    tdp = features["tdp"]
+    gaming_score = features["gaming_score"]
+    ee_gpu = (gaming_score / tdp) if tdp > 0 else 0.0
+    ee_norm = _linear_norm(ee_gpu, stats.gpu_ee)
+    gaming_score_max = stats.gpu["gaming_score"].max_value
+    perf_ratio = (gaming_score / gaming_score_max) if gaming_score_max > 0 else 0.0
+
     return {
         "gaming_score": _linear_norm(
             features["gaming_score"], stats.gpu["gaming_score"]
@@ -255,7 +283,7 @@ def _normalize_gpu(
         ),
         "cm": _linear_norm(features["cm"], stats.gpu["cm"]),
         "vram_size": _linear_norm(features["vram_size"], stats.gpu["vram_size"]),
-        "tdp": _inverse_log_norm(features["tdp"], stats.gpu["tdp"].max_value),
+        "tdp": _clamp_0_1(ee_norm * perf_ratio),
     }
 
 
@@ -275,7 +303,7 @@ def _normalize_storage(
         "capacity": _linear_norm(features["capacity"], stats.storage["capacity"]),
         "cache_size": _linear_norm(features["cache_size"], stats.storage["cache_size"]),
         "sp": _linear_norm(features["sp"], stats.storage["sp"]),
-        "rand": _log_norm(features["rand"], stats.storage["rand"].max_value),
+        "rand": _positive_log_norm_with_min_shift(features["rand"], stats.storage["rand"]),
     }
 
 

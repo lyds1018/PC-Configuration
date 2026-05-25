@@ -339,7 +339,7 @@ def _collect_feasible_candidates(parts, workload: str, budget_min: float, budget
 
 
 def _post_process_candidates(feasible: List[Dict[str, object]]):
-    """按性价比粗筛后再按性能排序，并生成 0-100 的性价比展示分。"""
+    """按性价比粗筛后再按性能排序，并生成更有区分度的性价比展示分。"""
     feasible.sort(key=lambda x: x["combo_value"], reverse=True)
     cutoff = int(len(feasible) * 0.7)
     trimmed = feasible[: max(cutoff, 1)]
@@ -347,16 +347,17 @@ def _post_process_candidates(feasible: List[Dict[str, object]]):
         key=lambda x: (x["scores"]["total_score"], x["combo_value"]), reverse=True
     )
 
-    min_combo = min(item["combo_value"] for item in trimmed)
-    max_combo = max(item["combo_value"] for item in trimmed)
-    combo_range = max_combo - min_combo
-    for item in trimmed:
-        if combo_range <= 0:
-            item["combo_value_100"] = 100.0
-        else:
-            item["combo_value_100"] = (
-                (item["combo_value"] - min_combo) / combo_range
-            ) * 100.0
+    # 用分位映射替代 min-max，避免 Top-K 展示分长期扎堆接近 100。
+    sorted_by_value = sorted(trimmed, key=lambda x: x["combo_value"])
+    n = len(sorted_by_value)
+    if n <= 1:
+        trimmed[0]["combo_value_100"] = 70.0
+        return trimmed
+
+    for rank, item in enumerate(sorted_by_value):
+        percentile = rank / (n - 1)
+        # 将分位值映射到 [35, 95]，顶部组合保留优势但不“满分化”。
+        item["combo_value_100"] = 35.0 + percentile * 60.0
     return trimmed
 
 

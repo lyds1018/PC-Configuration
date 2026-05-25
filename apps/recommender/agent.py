@@ -10,7 +10,7 @@ from typing import Dict, Mapping, Sequence
 
 MODEL = "deepseek-v4-flash"
 BASE_URL = "https://api.deepseek.com"
-TEMPERATURE = 0.6
+TEMPERATURE = 0.8
 THINKING_TYPE = "disabled"
 API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
 CLIENT = None
