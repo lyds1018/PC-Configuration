@@ -26,6 +26,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const workloadLabelMap = { game: "游戏", office: "办公", productivity: "生产力" };
     let payload = null;
     let requestStarted = false;
+    let requestController = null;
+    let requestTimeoutId = null;
 
     const getCookie = (name) => {
         const cookie = document.cookie
@@ -199,18 +201,32 @@ document.addEventListener("DOMContentLoaded", function () {
             };
             return;
         }
-        fetch(dataUrl, { credentials: "same-origin" })
+        requestController = new AbortController();
+        requestTimeoutId = window.setTimeout(() => {
+            requestController.abort();
+        }, 25000);
+        fetch(dataUrl, {
+            credentials: "same-origin",
+            signal: requestController.signal,
+        })
             .then((r) => r.json())
             .then((data) => {
                 payload = data;
             })
-            .catch(() => {
+            .catch((err) => {
+                const timeoutMessage =
+                    err && err.name === "AbortError"
+                        ? "推荐计算超时，请稍后重试或缩小筛选范围。"
+                        : "推荐数据加载失败，请返回重试。";
                 payload = {
-                    meta: { reason: "推荐数据加载失败，请返回重试。" },
+                    meta: { reason: timeoutMessage },
                     rows: [],
                     agent_enabled: false,
-                    agent_reason: "推荐数据加载失败，请返回重试。",
+                    agent_reason: timeoutMessage,
                 };
+            })
+            .finally(() => {
+                if (requestTimeoutId) window.clearTimeout(requestTimeoutId);
             });
     };
 

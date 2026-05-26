@@ -15,6 +15,7 @@ THINKING_TYPE = "disabled"
 API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
 CLIENT = None
 MAX_PROMPT_COMBOS = 5
+AGENT_TIMEOUT_SECONDS = 12.0
 
 
 def _safe_float(value) -> float:
@@ -66,11 +67,13 @@ def build_agent_prompt(
         "要求：\n"
         "1) 从候选中推荐最多3套，按优先级排序。\n"
         "2) 每套理由控制在一句话，突出场景匹配、预算、性能或性价比。\n"
-        "3) 给一个总体建议。\n"
-        "4) 仅输出 JSON。\n"
+        "3) summary 写 3 句左右，先结合 user_text 分析用户真实需求，再说明预算与性能取舍，最后给出选择建议。\n"
+        "4) 如果用户写了具体游戏、软件、分辨率、剪辑/渲染等需求，summary 必须点名回应这些需求。\n"
+        "5) 不要编造候选组合里没有的配件，不要输出 Markdown。\n"
+        "6) 仅输出 JSON。\n"
         "JSON 格式：\n"
         "{\n"
-        '  "summary": "总体建议",\n'
+        '  "summary": "三句左右的需求分析与总体建议",\n'
         '  "choices": [\n'
         '    {"rank": 1, "combo_index": 2, "reason": "理由"},\n'
         '    {"rank": 2, "combo_index": 1, "reason": "理由"}\n'
@@ -124,7 +127,11 @@ def get_agent_client():
     if openai_cls is None:
         return None
 
-    CLIENT = openai_cls(api_key=api_key, base_url=BASE_URL)
+    CLIENT = openai_cls(
+        api_key=api_key,
+        base_url=BASE_URL,
+        timeout=AGENT_TIMEOUT_SECONDS,
+    )
     return CLIENT
 
 
@@ -173,6 +180,7 @@ def run_agent_recommendation(
             ],
             temperature=TEMPERATURE,
             extra_body={"thinking": {"type": THINKING_TYPE}},
+            timeout=AGENT_TIMEOUT_SECONDS,
         )
         output_text = ""
         if completion and completion.choices:
