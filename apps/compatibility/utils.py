@@ -64,7 +64,7 @@ def parse_list(value: Any) -> list[str]:
     # 如果值为 None 或空字符串，返回空列表
     if value in (None, ""):
         return []
-    
+
     # 如果值已经是列表，直接转换其中元素为大写字符串并返回
     if isinstance(value, list):
         return [to_upper(v) for v in value if to_text(v)]
@@ -77,7 +77,7 @@ def parse_list(value: Any) -> list[str]:
         parsed = json.loads(text)
         if isinstance(parsed, list):
             return [to_upper(v) for v in parsed if to_text(v)]
-        
+
     except (TypeError, ValueError, json.JSONDecodeError):
         pass
 
@@ -88,7 +88,7 @@ def parse_list(value: Any) -> list[str]:
         cleaned = part.strip().strip("\"'")
         if cleaned:
             normalized.append(cleaned.upper())
-            
+
     return normalized
 
 

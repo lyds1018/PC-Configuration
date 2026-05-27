@@ -15,7 +15,7 @@ def storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
     """
     统一生成存储与内存总量统计。
     """
-    
+
     # 优先使用 totals 字段中的统计数据
     if "totals" in parts and isinstance(parts["totals"], dict):
         values = parts["totals"]

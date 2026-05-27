@@ -34,7 +34,7 @@ def check_cpu_mb_socket(cpu: Any, mb: Any) -> list[str]:
     # 比较 CPU 插槽接口与主板插槽接口
     if cpu_socket != mb_socket:
         issues.append(f"CPU 接口 {cpu_socket} 与主板接口 {mb_socket} 不兼容。")
-       
+
     return issues
 
 
@@ -83,7 +83,9 @@ def check_mb_case(mb: Any, case: Any) -> list[str]:
 
     # 比较主板版型与机箱支持的最大版型
     if mb_rank > case_rank:
-        issues.append(f"主板尺寸 {to_text(mb_form)} 超过机箱最大尺寸 {to_text(case_form)}。")
+        issues.append(
+            f"主板尺寸 {to_text(mb_form)} 超过机箱最大尺寸 {to_text(case_form)}。"
+        )
 
     return issues
 
@@ -211,7 +213,9 @@ def check_power(cpu: Any, gpu: Any, psu: Any) -> list[str]:
     # 计算参考功率并与电源额定功率比较
     required = (cpu_tdp + gpu_tdp) * 1.3
     if required > psu_wattage:
-        issues.append(f"电源额定功率 {psu_wattage:.0f}W 不足，至少需要 {required:.0f}W。")
+        issues.append(
+            f"电源额定功率 {psu_wattage:.0f}W 不足，至少需要 {required:.0f}W。"
+        )
 
     return issues
 
