@@ -148,7 +148,7 @@ class CpuCooler(models.Model):
     price = models.FloatField()
     type = models.TextField(null=True)
     air_height = models.IntegerField(null=True)
-    water_size = models.CharField(max_length=3, null=True)
+    water_size = models.IntegerField(null=True)
     noise_level = models.FloatField(null=True)
 
     class Meta:

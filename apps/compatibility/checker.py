@@ -11,11 +11,12 @@ from . import all_checks
 from .utils import read, to_upper
 
 
-def _derive_storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
+def storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
     """
     统一生成存储与内存总量统计。
-    优先使用上游已给出的 totals；缺失时从 storages 动态推导。
     """
+    
+    # 优先使用 totals 字段中的统计数据
     if "totals" in parts and isinstance(parts["totals"], dict):
         values = parts["totals"]
         return {
@@ -26,6 +27,7 @@ def _derive_storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
             "total_memory": int(values.get("total_memory", 0) or 0),
         }
 
+    # 根据 storages 列表进行统计
     total_m2 = total_sata = total_sata_ssd = total_hdd = 0
     for storage in parts.get("storages", []):
         storage_type = to_upper(read(storage, "type"))
@@ -58,7 +60,7 @@ def run_checks(parts: Dict[str, Any]) -> Dict[str, Any]:
         {"ok": bool, "issues": list[str]}
         其中 ok 表示是否通过全部检查，issues 为按固定顺序汇总的问题列表。
     """
-    # 约定缺失配件时传空字典，兼容各子检查函数的读取逻辑。
+    # 配件缺失时传空字典
     cpu = parts.get("cpu", {})
     mb = parts.get("mb", {})
     ram = parts.get("ram", {})
@@ -67,9 +69,9 @@ def run_checks(parts: Dict[str, Any]) -> Dict[str, Any]:
     psu = parts.get("psu", {})
     cooler = parts.get("cooler", {})
 
-    totals = _derive_storage_totals(parts)
+    totals = storage_totals(parts)
 
-    # 固定顺序执行检查，保证输出问题列表稳定可预期。
+    # 固定顺序执行检查,统一输出结构
     issues: List[str] = []
     issues += all_checks.check_cpu_mb_socket(cpu, mb)
     issues += all_checks.check_cpu_ram(cpu, ram)
