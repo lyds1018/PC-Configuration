@@ -1,7 +1,6 @@
 """推荐解释生成器
 
-将候选组合压缩为提示词，调用模型生成可读推荐理由，
-并解析为页面可消费的结构化 JSON
+将候选组合压缩为提示词，调用模型生成可读推荐理由
 """
 
 import json
@@ -84,7 +83,7 @@ def build_agent_prompt(
     )
 
 
-def _parse_agent_json(text: str) -> Dict[str, object]:
+def parse_agent_json(text: str) -> Dict[str, object]:
     """尽量稳健地从模型输出中解析 JSON。"""
     text = (text or "").strip()
     if not text:
@@ -102,7 +101,7 @@ def _parse_agent_json(text: str) -> Dict[str, object]:
         return {}
 
 
-def _load_openai_class():
+def load_openai_class():
     try:
         from openai import OpenAI
     except ImportError:
@@ -123,7 +122,7 @@ def get_agent_client():
     if not api_key:
         return None
 
-    openai_cls = _load_openai_class()
+    openai_cls = load_openai_class()
     if openai_cls is None:
         return None
 
@@ -138,7 +137,6 @@ def get_agent_client():
 def warmup_agent_client() -> bool:
     """
     预热智能体 client：在页面进入阶段提前完成初始化。
-    失败时返回 False，不抛异常，不影响主流程。
     """
     try:
         return get_agent_client() is not None
@@ -187,7 +185,7 @@ def run_agent_recommendation(
             output_text = str(completion.choices[0].message.content or "")
     except Exception as exc:
         return {"enabled": False, "reason": f"智能体调用失败，已回退规则推荐：{exc}"}
-    parsed = _parse_agent_json(output_text)
+    parsed = parse_agent_json(output_text)
     if not parsed:
         return {"enabled": False, "reason": "智能体返回不可解析，已回退规则推荐。"}
 

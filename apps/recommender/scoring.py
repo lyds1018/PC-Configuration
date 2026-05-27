@@ -1,27 +1,22 @@
 """装机推荐评分体系
 
-通过“特征提取 -> 归一化 -> 分项加权 -> 总分聚合”计算组合分数，
-并按不同 workload 应用不同权重策略
+特征提取，归一化，分项加权，
+其中按不同应用场景，使用不同权重策略
 """
 
 import math
 from dataclasses import dataclass
 from typing import Dict, Iterable, Mapping
 
-# 用途类型常量
-WORKLOAD_GAME = "game"
-WORKLOAD_OFFICE = "office"
-WORKLOAD_PRODUCTIVITY = "productivity"
-
-WORKLOAD_ALIASES = {
-    "游戏": WORKLOAD_GAME,
-    "办公": WORKLOAD_OFFICE,
-    "生产力": WORKLOAD_PRODUCTIVITY,
-    WORKLOAD_GAME: WORKLOAD_GAME,
-    WORKLOAD_OFFICE: WORKLOAD_OFFICE,
-    WORKLOAD_PRODUCTIVITY: WORKLOAD_PRODUCTIVITY,
-}
-
+from .utils import (
+    WORKLOAD_ALIASES,
+    WORKLOAD_GAME,
+    WORKLOAD_OFFICE,
+    WORKLOAD_PRODUCTIVITY,
+    clamp_0_1,
+    to_float,
+    to_log,
+)
 
 SUB_WEIGHTS = {
     WORKLOAD_GAME: {
@@ -87,12 +82,14 @@ TOTAL_WEIGHTS = {
 }
 
 
+# 边界类
 @dataclass(frozen=True)
 class MinMax:
     min_value: float
     max_value: float
 
 
+# 整机边界类
 @dataclass(frozen=True)
 class NormalizationStats:
     cpu: Dict[str, MinMax]
@@ -103,97 +100,81 @@ class NormalizationStats:
     gpu_ee: MinMax
 
 
-def _to_float(value, default=0.0):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_log(value: float) -> float:
-    if value <= 0:
-        return 0.0
-    return math.log(value)
-
-
-def _clamp_0_1(value: float) -> float:
-    return max(0.0, min(1.0, value))
-
-
-def _linear_norm(value: float, bounds: MinMax) -> float:
+def linear_norm(value: float, bounds: MinMax) -> float:
     denom = bounds.max_value - bounds.min_value
     if denom <= 0:
         return 0.0
-    return _clamp_0_1((value - bounds.min_value) / denom)
+    return clamp_0_1((value - bounds.min_value) / denom)
 
 
-def _positive_log_norm_with_min_shift(value: float, bounds: MinMax) -> float:
+def positive_log_norm(value: float, bounds: MinMax) -> float:
     span = bounds.max_value - bounds.min_value
     if span <= 0:
         return 0.0
-    numerator = _safe_log(value - bounds.min_value + 1.0)
-    denominator = _safe_log(span + 1.0)
+    numerator = to_log(value - bounds.min_value + 1.0)
+    denominator = to_log(span + 1.0)
     if denominator <= 0:
         return 0.0
-    return _clamp_0_1(numerator / denominator)
+    return clamp_0_1(numerator / denominator)
 
 
-def _cpu_features(cpu: Mapping[str, float]) -> Dict[str, float]:
-    base_clock = _to_float(cpu.get("base_clock"))
-    boost_clock = _to_float(cpu.get("boost_clock"))
-    core_count = _to_float(cpu.get("core_count"))
-    thread_count = _to_float(cpu.get("thread_count"))
+def cpu_features(cpu: Mapping[str, float]) -> Dict[str, float]:
+    base_clock = to_float(cpu.get("base_clock"))
+    boost_clock = to_float(cpu.get("boost_clock"))
+    core_count = to_float(cpu.get("core_count"))
+    thread_count = to_float(cpu.get("thread_count"))
 
     return {
-        "single_score": _to_float(cpu.get("single_score")),
-        "multi_score": _to_float(cpu.get("multi_score")),
+        "single_score": to_float(cpu.get("single_score")),
+        "multi_score": to_float(cpu.get("multi_score")),
         "bb": (base_clock + boost_clock) / 2.0,
-        "ct": _safe_log(core_count * thread_count),
-        "tdp": _to_float(cpu.get("tdp")),
+        "ct": to_log(core_count * thread_count),
+        "tdp": to_float(cpu.get("tdp")),
     }
 
 
-def _gpu_features(gpu: Mapping[str, float]) -> Dict[str, float]:
-    core_clock = _to_float(gpu.get("core_clock"))
-    memory_clock = _to_float(gpu.get("memory_clock"))
+def gpu_features(gpu: Mapping[str, float]) -> Dict[str, float]:
+    core_clock = to_float(gpu.get("core_clock"))
+    memory_clock = to_float(gpu.get("memory_clock"))
     return {
-        "gaming_score": _to_float(gpu.get("gaming_score")),
-        "compute_score": _to_float(gpu.get("compute_score")),
+        "gaming_score": to_float(gpu.get("gaming_score")),
+        "compute_score": to_float(gpu.get("compute_score")),
         "cm": (core_clock + memory_clock) / 2.0,
-        "vram_size": _to_float(gpu.get("vram_size")),
-        "tdp": _to_float(gpu.get("tdp")),
+        "vram_size": to_float(gpu.get("vram_size")),
+        "tdp": to_float(gpu.get("tdp")),
     }
 
 
-def _ram_features(ram: Mapping[str, float]) -> Dict[str, float]:
-    frequency = _to_float(ram.get("frequency"))
-    latency = _to_float(ram.get("latency"), default=1.0)
+def ram_features(ram: Mapping[str, float]) -> Dict[str, float]:
+    frequency = to_float(ram.get("frequency"))
+    latency = to_float(ram.get("latency"), default=1.0)
     if latency <= 0:
         latency = 1.0
 
     return {
-        "capacity": _to_float(ram.get("capacity")),
+        "capacity": to_float(ram.get("capacity")),
         "fl": frequency / latency,
     }
 
 
-def _storage_features(storage: Mapping[str, float]) -> Dict[str, float]:
-    read_speed = _to_float(storage.get("read_speed"))
-    write_speed = _to_float(storage.get("write_speed"))
-    random_read_iops = _to_float(storage.get("random_read_iops"))
-    random_write_iops = _to_float(storage.get("random_write_iops"))
+def storage_features(storage: Mapping[str, float]) -> Dict[str, float]:
+    read_speed = to_float(storage.get("read_speed"))
+    write_speed = to_float(storage.get("write_speed"))
+    random_read_iops = to_float(storage.get("random_read_iops"))
+    random_write_iops = to_float(storage.get("random_write_iops"))
 
     return {
-        "capacity": _to_float(storage.get("capacity")),
-        "cache_size": _to_float(storage.get("cache_size")),
+        "capacity": to_float(storage.get("capacity")),
+        "cache_size": to_float(storage.get("cache_size")),
         "sp": (read_speed + write_speed) / 2.0,
         "rand": (random_read_iops + random_write_iops) / 2.0,
     }
 
 
-def _build_bounds(
+def build_bounds(
     items: Iterable[Mapping[str, float]], feature_builder
 ) -> Dict[str, MinMax]:
+    """根据候选集计算每个特征的最小值与最大值，用于后续归一化。"""
     values_by_feature: Dict[str, list] = {}
     for item in items:
         features = feature_builder(item)
@@ -209,13 +190,13 @@ def _build_bounds(
     return bounds
 
 
-def _build_ee_bounds(
-    items: Iterable[Mapping[str, float]], score_key: str
-) -> MinMax:
+def build_ee_bounds(items: Iterable[Mapping[str, float]], score_key: str) -> MinMax:
+    """计算能效比（性能分数/功耗）的最小值与最大值，用于后续归一化。"""
     values = []
+
     for item in items:
-        score = _to_float(item.get(score_key))
-        tdp = _to_float(item.get("tdp"))
+        score = to_float(item.get(score_key))
+        tdp = to_float(item.get("tdp"))
         if tdp <= 0:
             values.append(0.0)
             continue
@@ -232,86 +213,86 @@ def build_normalization_stats(
     rams: Iterable[Mapping[str, float]],
     storages: Iterable[Mapping[str, float]],
 ) -> NormalizationStats:
-    """根据候选集构建归一化边界，避免不同量纲直接比较。"""
+    """计算候选集构建归一化边界。"""
     return NormalizationStats(
-        cpu=_build_bounds(cpus, _cpu_features),
-        gpu=_build_bounds(gpus, _gpu_features),
-        ram=_build_bounds(rams, _ram_features),
-        storage=_build_bounds(storages, _storage_features),
-        cpu_ee=_build_ee_bounds(cpus, "multi_score"),
-        gpu_ee=_build_ee_bounds(gpus, "gaming_score"),
+        cpu=build_bounds(cpus, cpu_features),
+        gpu=build_bounds(gpus, gpu_features),
+        ram=build_bounds(rams, ram_features),
+        storage=build_bounds(storages, storage_features),
+        cpu_ee=build_ee_bounds(cpus, "multi_score"),
+        gpu_ee=build_ee_bounds(gpus, "gaming_score"),
     )
 
 
-def _normalize_cpu(
+def normalize_cpu(
     features: Dict[str, float], stats: NormalizationStats
 ) -> Dict[str, float]:
     tdp = features["tdp"]
     multi_score = features["multi_score"]
     ee_cpu = (multi_score / tdp) if tdp > 0 else 0.0
-    ee_norm = _linear_norm(ee_cpu, stats.cpu_ee)
+    ee_norm = linear_norm(ee_cpu, stats.cpu_ee)
     multi_score_max = stats.cpu["multi_score"].max_value
     perf_ratio = (multi_score / multi_score_max) if multi_score_max > 0 else 0.0
 
     return {
-        "single_score": _linear_norm(
+        "single_score": linear_norm(
             features["single_score"], stats.cpu["single_score"]
         ),
-        "multi_score": _linear_norm(features["multi_score"], stats.cpu["multi_score"]),
-        "bb": _linear_norm(features["bb"], stats.cpu["bb"]),
-        "ct": _linear_norm(features["ct"], stats.cpu["ct"]),
-        "tdp": _clamp_0_1(ee_norm * perf_ratio),
+        "multi_score": linear_norm(features["multi_score"], stats.cpu["multi_score"]),
+        "bb": linear_norm(features["bb"], stats.cpu["bb"]),
+        "ct": linear_norm(features["ct"], stats.cpu["ct"]),
+        "tdp": clamp_0_1(ee_norm * perf_ratio),
     }
 
 
-def _normalize_gpu(
+def normalize_gpu(
     features: Dict[str, float], stats: NormalizationStats
 ) -> Dict[str, float]:
     tdp = features["tdp"]
     gaming_score = features["gaming_score"]
     ee_gpu = (gaming_score / tdp) if tdp > 0 else 0.0
-    ee_norm = _linear_norm(ee_gpu, stats.gpu_ee)
+    ee_norm = linear_norm(ee_gpu, stats.gpu_ee)
     gaming_score_max = stats.gpu["gaming_score"].max_value
     perf_ratio = (gaming_score / gaming_score_max) if gaming_score_max > 0 else 0.0
 
     return {
-        "gaming_score": _linear_norm(
+        "gaming_score": linear_norm(
             features["gaming_score"], stats.gpu["gaming_score"]
         ),
-        "compute_score": _linear_norm(
+        "compute_score": linear_norm(
             features["compute_score"], stats.gpu["compute_score"]
         ),
-        "cm": _linear_norm(features["cm"], stats.gpu["cm"]),
-        "vram_size": _linear_norm(features["vram_size"], stats.gpu["vram_size"]),
-        "tdp": _clamp_0_1(ee_norm * perf_ratio),
+        "cm": linear_norm(features["cm"], stats.gpu["cm"]),
+        "vram_size": linear_norm(features["vram_size"], stats.gpu["vram_size"]),
+        "tdp": clamp_0_1(ee_norm * perf_ratio),
     }
 
 
-def _normalize_ram(
+def normalize_ram(
     features: Dict[str, float], stats: NormalizationStats
 ) -> Dict[str, float]:
     return {
-        "capacity": _linear_norm(features["capacity"], stats.ram["capacity"]),
-        "fl": _linear_norm(features["fl"], stats.ram["fl"]),
+        "capacity": linear_norm(features["capacity"], stats.ram["capacity"]),
+        "fl": linear_norm(features["fl"], stats.ram["fl"]),
     }
 
 
-def _normalize_storage(
+def normalize_storage(
     features: Dict[str, float], stats: NormalizationStats
 ) -> Dict[str, float]:
     return {
-        "capacity": _linear_norm(features["capacity"], stats.storage["capacity"]),
-        "cache_size": _linear_norm(features["cache_size"], stats.storage["cache_size"]),
-        "sp": _linear_norm(features["sp"], stats.storage["sp"]),
-        "rand": _positive_log_norm_with_min_shift(features["rand"], stats.storage["rand"]),
+        "capacity": linear_norm(features["capacity"], stats.storage["capacity"]),
+        "cache_size": linear_norm(features["cache_size"], stats.storage["cache_size"]),
+        "sp": linear_norm(features["sp"], stats.storage["sp"]),
+        "rand": positive_log_norm(features["rand"], stats.storage["rand"]),
     }
 
 
-def _weighted_score(features: Dict[str, float], weights: Dict[str, float]) -> float:
+def weighted_score(features: Dict[str, float], weights: Dict[str, float]) -> float:
     return sum(features[name] * weight for name, weight in weights.items())
 
 
-def _normalize_workload(workload: str) -> str:
+def normalize_workload(workload: str) -> str:
     normalized = WORKLOAD_ALIASES.get(workload)
     if not normalized:
         raise ValueError(f"unsupported workload: {workload}")
@@ -327,22 +308,22 @@ def score_build(
     workload: str,
 ) -> Dict[str, float]:
     """
-    计算整机综合分数。
-    返回值约在 [0, 1]，包含 CPU/GPU/内存/存储子分与总分。
+    计算整机综合分数
+    返回值在 [0, 1]，包含 CPU/GPU/内存/存储子分与总分
     """
-    workload_key = _normalize_workload(workload)
+    workload_key = normalize_workload(workload)
     sub_weights = SUB_WEIGHTS[workload_key]
     total_weights = TOTAL_WEIGHTS[workload_key]
 
-    cpu_norm = _normalize_cpu(_cpu_features(cpu), stats)
-    gpu_norm = _normalize_gpu(_gpu_features(gpu), stats)
-    ram_norm = _normalize_ram(_ram_features(ram), stats)
-    storage_norm = _normalize_storage(_storage_features(storage), stats)
+    cpu_norm = normalize_cpu(cpu_features(cpu), stats)
+    gpu_norm = normalize_gpu(gpu_features(gpu), stats)
+    ram_norm = normalize_ram(ram_features(ram), stats)
+    storage_norm = normalize_storage(storage_features(storage), stats)
 
-    cpu_score = _weighted_score(cpu_norm, sub_weights["cpu"])
-    gpu_score = _weighted_score(gpu_norm, sub_weights["gpu"])
-    ram_score = _weighted_score(ram_norm, sub_weights["ram"])
-    storage_score = _weighted_score(storage_norm, sub_weights["storage"])
+    cpu_score = weighted_score(cpu_norm, sub_weights["cpu"])
+    gpu_score = weighted_score(gpu_norm, sub_weights["gpu"])
+    ram_score = weighted_score(ram_norm, sub_weights["ram"])
+    storage_score = weighted_score(storage_norm, sub_weights["storage"])
 
     total_score = (
         cpu_score * total_weights["cpu"]
@@ -350,6 +331,8 @@ def score_build(
         + ram_score * total_weights["ram"]
         + storage_score * total_weights["storage"]
     )
+
+    total_score = 1 / (1 + math.exp(-6 * (total_score - 0.35)))
 
     return {
         "cpu_score": cpu_score,

@@ -1,14 +1,25 @@
-"""推荐模块通用工具函数"""
+"""推荐模块工具函数与常量"""
 
+import math
 from typing import Dict, List, Mapping
 
 from compatibility import run_checks
 
-from .scoring import WORKLOAD_GAME, WORKLOAD_OFFICE, WORKLOAD_PRODUCTIVITY
-
-
 MAX_FEASIBLE_COMBOS = 500
 
+# 用途类型常量
+WORKLOAD_GAME = "game"
+WORKLOAD_OFFICE = "office"
+WORKLOAD_PRODUCTIVITY = "productivity"
+
+WORKLOAD_ALIASES = {
+    "game": WORKLOAD_GAME,
+    "office": WORKLOAD_OFFICE,
+    "productivity": WORKLOAD_PRODUCTIVITY,
+    "游戏": WORKLOAD_GAME,
+    "办公": WORKLOAD_OFFICE,
+    "生产力": WORKLOAD_PRODUCTIVITY,
+}
 
 def to_float(value, default=0.0):
     try:
@@ -17,11 +28,22 @@ def to_float(value, default=0.0):
         return default
 
 
+def to_log(value: float) -> float:
+    if value <= 0:
+        return 0.0
+    return math.log(value)
+
+
 def to_int(value, default=0):
     try:
         return int(float(value))
     except (TypeError, ValueError):
         return default
+
+
+def clamp_0_1(value: float) -> float:
+    """限制在 [0, 1] 范围内。"""
+    return max(0.0, min(1.0, value))
 
 
 def normalize_brand(value: str) -> str:
@@ -51,7 +73,7 @@ def normalize_workload(value: str) -> str:
 
 
 def as_parts_payload(parts: Mapping[str, object]) -> Dict[str, object]:
-    """将候选组合转换为兼容性检查所需的统一 payload。"""
+    """将候选组合转换为兼容性检查所需的统一输入。"""
     storage = parts.get("storage")
     ram = parts.get("ram")
     storage_type = str(getattr(storage, "type", "")).upper()
@@ -122,4 +144,5 @@ def is_compatible(parts: Mapping[str, object]) -> bool:
 
 
 def is_limit_reached(feasible: List[Dict[str, object]]) -> bool:
+    # 判断是否已达到可行组合数量上限，超过则不继续生成更多组合
     return len(feasible) >= MAX_FEASIBLE_COMBOS
