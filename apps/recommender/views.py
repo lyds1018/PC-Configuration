@@ -103,7 +103,6 @@ def build_recommendation_result(form_data):
             cpu_brand=form_data["cpu_brand"],
             gpu_chip_brand=form_data["gpu_chip_brand"],
             free_text=form_data["free_text"],
-            top_k=int(form_data["top_k"] or 3),
         )
     )
     recommendations = result.get("items", [])
@@ -114,6 +113,9 @@ def build_recommendation_result(form_data):
         recommendations=recommendations,
     )
     inject_agent_reason(recommendations, agent_result)
+
+    top_k = int(form_data["top_k"])
+    recommendations = recommendations[:top_k]
 
     return form_data, recommendations, meta, agent_result
 

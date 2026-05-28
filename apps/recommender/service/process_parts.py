@@ -1,3 +1,4 @@
+import random
 from .utils import normalize_brand, to_float, to_int, RecommendationRequest
 from pc_builder.models import Case, Cpu, CpuCooler, Gpu, Mb, Psu, Ram, Storage
 from typing import Dict, List
@@ -27,23 +28,20 @@ def gpu_chip_brand_filter(queryset, chip_brand: str):
 def evenly_sample(queryset, limit: int):
     '''按价格均匀抽样'''
     items = list(queryset.order_by("price"))
-    if len(items) <= limit:
-        return items
-
-    if limit <= 1:
-        return [items[0]]
+    total_count = len(items)
 
     selected = []
-    seen_ids = set()
-    last_index = len(items) - 1
+    block_size = total_count / limit
+
     for i in range(limit):
-        index = round(i * last_index / (limit - 1))
-        item = items[index]
-        item_id = getattr(item, "id", id(item))
-        if item_id in seen_ids:
-            continue
-        seen_ids.add(item_id)
-        selected.append(item)
+        # 当前块索引
+        start_index = int(i * block_size)
+        end_index = int((i + 1) * block_size) - 1
+        end_index = min(end_index, total_count - 1)
+
+        final_index = random.randint(start_index, end_index)
+        selected.append(items[final_index])
+
     return selected
 
 

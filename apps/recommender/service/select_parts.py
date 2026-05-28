@@ -1,5 +1,7 @@
-from math import ceil
 from typing import Dict, List, Mapping
+from .utils import OUTPUT_CANDIDATES
+
+ALL_PART_KEYS = ["cpu", "mb", "ram", "gpu", "storage", "cooler"]
 
 
 def part_id(item: Mapping[str, object], key: str) -> object:
@@ -13,10 +15,12 @@ def core_signature(item: Mapping[str, object]) -> tuple[object, ...]:
     return tuple(part_id(item, key) for key in ("cpu", "gpu", "mb", "ram", "storage"))
 
 
-def is_diverse_enough(
+def is_diverse(
     candidate: Mapping[str, object], selected: List[Dict[str, object]]
 ) -> bool:
-    """展示方案必须在核心配置上有可感知差异。"""
+    '''检查组合多样性。'''
+    candidate_price = float(candidate.get("total_price", 0))
+
     for item in selected:
         if core_signature(candidate) == core_signature(item):
             return False
@@ -25,54 +29,35 @@ def is_diverse_enough(
         gpu_diff = part_id(candidate, "gpu") != part_id(item, "gpu")
         if not (cpu_diff or gpu_diff):
             return False
+
+        same_count = 0
+        for key in ALL_PART_KEYS:
+            if (
+                part_id(candidate, key) == part_id(item, key)
+                and part_id(candidate, key) is not None
+            ):
+                same_count += 1
+
+        if same_count >= 3:
+            return False
+
+        item_price = float(item.get("total_price", 0))
+        if abs(candidate_price - item_price) < 500.0:
+            if not (cpu_diff and gpu_diff):
+                return False
+
     return True
 
 
-def select_diverse_top_items(
-    feasible: List[Dict[str, object]], top_k: int
-) -> List[Dict[str, object]]:
+def select_diverse_items(feasible: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    '''选取多样性组合。'''
     selected: List[Dict[str, object]] = []
-    max_same_core_part = max(1, ceil(top_k / 2))
+    
     for item in feasible:
-        cpu_id = part_id(item, "cpu")
-        gpu_id = part_id(item, "gpu")
-        if (
-            sum(
-                1
-                for selected_item in selected
-                if part_id(selected_item, "cpu") == cpu_id
-            )
-            >= max_same_core_part
-        ):
-            continue
-        if (
-            sum(
-                1
-                for selected_item in selected
-                if part_id(selected_item, "gpu") == gpu_id
-            )
-            >= max_same_core_part
-        ):
-            continue
-        if is_diverse_enough(item, selected):
+        if is_diverse(item, selected):
             selected.append(item)
-            if len(selected) >= top_k:
+            
+            if len(selected) >= OUTPUT_CANDIDATES:
                 return selected
-
-    # 预算或品牌约束太窄时仍保证有结果，但尽量避免完全重复核心件。
-    seen_signatures = {core_signature(item) for item in selected}
-    for item in feasible:
-        signature = core_signature(item)
-        if signature in seen_signatures:
-            continue
-        selected.append(item)
-        seen_signatures.add(signature)
-        if len(selected) >= top_k:
-            return selected
-
-    for item in feasible:
-        if item not in selected:
-            selected.append(item)
-            if len(selected) >= top_k:
-                return selected
+                
     return selected

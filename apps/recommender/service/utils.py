@@ -7,8 +7,8 @@ from typing import Dict, List, Mapping
 from compatibility import run_checks
 
 # 组合枚举常量
-MAX_CANDIDATES = 500
-OUTPUT_CANDIDATES = 5
+MAX_CANDIDATES = 1024
+OUTPUT_CANDIDATES = 6
 
 # 用途类型常量
 WORKLOAD_GAME = "game"
@@ -76,32 +76,6 @@ def normalize_brand(value: str) -> str:
     if upper in {"NVIDIA", "英伟达"}:
         return "NVIDIA"
     return text
-
-
-def as_parts_payload(parts: Mapping[str, object]) -> Dict[str, object]:
-    """将候选组合转换为兼容性检查所需的统一输入。"""
-    storage = parts.get("storage")
-    ram = parts.get("ram")
-    storage_type = str(getattr(storage, "type", "")).upper()
-    is_m2 = "M.2" in storage_type
-    return {
-        "cpu": parts.get("cpu"),
-        "mb": parts.get("mb"),
-        "ram": ram,
-        "storage": storage,
-        "gpu": parts.get("gpu"),
-        "case": parts.get("case"),
-        "psu": parts.get("psu"),
-        "cooler": parts.get("cooler"),
-        "storages": [{"type": getattr(storage, "type", "")}] if storage else [],
-        "totals": {
-            "total_m2": 1 if is_m2 else 0,
-            "total_sata": 0 if is_m2 else 1,
-            "total_sata_ssd": 1 if "SATA SSD" in storage_type else 0,
-            "total_hdd": 1 if "HDD" in storage_type else 0,
-            "total_memory": to_int(getattr(ram, "module_count", 1), 1),
-        },
-    }
 
 
 def part_price(part) -> float:

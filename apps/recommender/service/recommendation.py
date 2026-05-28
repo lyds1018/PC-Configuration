@@ -2,15 +2,22 @@
 
 参数解析、候选集加载、组合枚举、兼容性约束过滤、性能评分与排序后处理
 """
+
 from typing import Dict, List, Mapping
+
 from ..scoring import build_normalization_stats
-from .process_parts import preference_parts, order_candidate_parts, price_score
 from .enum_parts import collect_feasible_candidates
-from .select_parts import select_diverse_top_items
-from .utils import RecommendationRequest, normalize_budget_range, obj_to_score_dict, OUTPUT_CANDIDATES
+from .process_parts import order_candidate_parts, preference_parts, price_score
+from .select_parts import select_diverse_items
+from .utils import (
+    RecommendationRequest,
+    normalize_budget_range,
+    obj_to_score_dict,
+)
 
 
 def build_scoring_stats(parts: Mapping[str, List[object]]):
+    """构建归一化的评分统计数据, 供后续评分函数使用"""
     return build_normalization_stats(
         cpus=[obj_to_score_dict(x) for x in parts["cpus"]],
         gpus=[obj_to_score_dict(x) for x in parts["gpus"]],
@@ -35,10 +42,10 @@ def recommend_builds(params: RecommendationRequest) -> Dict[str, object]:
         budget_min=budget_min,
         budget_max=budget_max,
         stats=stats,
-    )   # 枚举过滤可行组合
+    )  # 枚举过滤可行组合
 
-    feasible = price_score(feasible) # 计算性价比分数
-    top_items = select_diverse_top_items(feasible, OUTPUT_CANDIDATES)   # 返回多样化组合
+    feasible = price_score(feasible)  # 计算性价比分数
+    top_items = select_diverse_items(feasible)  # 返回多样化组合
 
     return {
         "items": top_items,
