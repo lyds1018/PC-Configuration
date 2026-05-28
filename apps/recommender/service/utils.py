@@ -1,11 +1,14 @@
 """推荐模块工具函数与常量"""
 
 import math
+from dataclasses import dataclass
 from typing import Dict, List, Mapping
 
 from compatibility import run_checks
 
-MAX_FEASIBLE_COMBOS = 500
+# 组合枚举常量
+MAX_CANDIDATES = 500
+OUTPUT_CANDIDATES = 5
 
 # 用途类型常量
 WORKLOAD_GAME = "game"
@@ -20,6 +23,21 @@ WORKLOAD_ALIASES = {
     "办公": WORKLOAD_OFFICE,
     "生产力": WORKLOAD_PRODUCTIVITY,
 }
+
+
+@dataclass
+class RecommendationRequest:
+    """推荐请求参数：由表单输入。"""
+
+    budget_min: float = 0.0
+    budget_max: float = 0.0
+    workload: str = WORKLOAD_GAME
+    cpu_brand: str = ""
+    gpu_chip_brand: str = ""
+    gpu_card_brand: str = ""
+    free_text: str = ""
+    top_k: int = 3
+
 
 def to_float(value, default=0.0):
     try:
@@ -58,18 +76,6 @@ def normalize_brand(value: str) -> str:
     if upper in {"NVIDIA", "英伟达"}:
         return "NVIDIA"
     return text
-
-
-def normalize_workload(value: str) -> str:
-    """将用途字段归一化到内部常量，无法识别时默认 game。"""
-    text = (value or "").strip().lower()
-    if text in {WORKLOAD_GAME, "游戏"}:
-        return WORKLOAD_GAME
-    if text in {WORKLOAD_OFFICE, "办公"}:
-        return WORKLOAD_OFFICE
-    if text in {WORKLOAD_PRODUCTIVITY, "生产力"}:
-        return WORKLOAD_PRODUCTIVITY
-    return WORKLOAD_GAME
 
 
 def as_parts_payload(parts: Mapping[str, object]) -> Dict[str, object]:
@@ -143,6 +149,21 @@ def is_compatible(parts: Mapping[str, object]) -> bool:
     return run_checks(dict(parts)).get("ok", False)
 
 
-def is_limit_reached(feasible: List[Dict[str, object]]) -> bool:
-    # 判断是否已达到可行组合数量上限，超过则不继续生成更多组合
-    return len(feasible) >= MAX_FEASIBLE_COMBOS
+def min_price(parts: Mapping[str, List[object]], key: str) -> float:
+    values = [part_price(item) for item in parts.get(key, [])]
+    return min(values) if values else 0.0
+
+
+def max_price(parts: Mapping[str, List[object]], key: str) -> float:
+    values = [part_price(item) for item in parts.get(key, [])]
+    return max(values) if values else 0.0
+
+
+def normalize_budget_range(params: RecommendationRequest) -> tuple[float, float]:
+    budget_min = max(0.0, to_float(params.budget_min, 0.0))
+    budget_max = max(0.0, to_float(params.budget_max, 0.0))
+    if budget_max <= 0:
+        budget_max = 20000.0
+    if budget_min > budget_max:
+        budget_min, budget_max = budget_max, budget_min
+    return budget_min, budget_max

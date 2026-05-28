@@ -6,6 +6,7 @@
 import json
 import os
 from typing import Dict, Mapping, Sequence
+from .service.utils import OUTPUT_CANDIDATES
 
 MODEL = "deepseek-v4-flash"
 BASE_URL = "https://api.deepseek.com"
@@ -13,26 +14,25 @@ TEMPERATURE = 0.8
 THINKING_TYPE = "disabled"
 API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
 CLIENT = None
-MAX_PROMPT_COMBOS = 5
-AGENT_TIMEOUT_SECONDS = 12.0
+AGENT_TIMEOUT_SECONDS = 15.0
 
 
-def _safe_float(value) -> float:
+def safe_float(value) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
 
 
-def _combo_to_text(index: int, item: Mapping[str, object]) -> str:
+def combo_to_text(index: int, item: Mapping[str, object]) -> str:
     """将候选组合转为紧凑文本，供提示词拼接。"""
     parts = item.get("parts", {})
     scores = item.get("scores", {})
     return (
         f"{index}. "
-        f"总价={_safe_float(item.get('total_price')):.2f}元, "
-        f"总分={_safe_float(scores.get('total_score_100')):.1f}/100, "
-        f"性价比={_safe_float(item.get('combo_value_100')):.1f}/100, "
+        f"总价={safe_float(item.get('total_price')):.2f}元, "
+        f"总分={safe_float(scores.get('total_score_100')):.1f}/100, "
+        f"性价比={safe_float(item.get('combo_value_100')):.1f}/100, "
         f"CPU={getattr(parts.get('cpu'), 'name', '')}, "
         f"GPU={getattr(parts.get('gpu'), 'name', '')}, "
         f"内存={getattr(parts.get('ram'), 'name', '')}, "
@@ -45,7 +45,7 @@ def build_agent_prompt(
     form_data: Mapping[str, object],
     recommendations: Sequence[Mapping[str, object]],
 ) -> str:
-    """构建要求严格 JSON 输出的提示词模板。"""
+    """构建 JSON 输出的提示词模板。"""
     prefs = {
         "user_text": user_text or "",
         "budget_min": form_data.get("budget_min", ""),
@@ -55,31 +55,37 @@ def build_agent_prompt(
         "gpu_chip_brand": form_data.get("gpu_chip_brand", ""),
         "top_k": form_data.get("top_k", 3),
     }
-    brief_recommendations = recommendations[:MAX_PROMPT_COMBOS]
+    brief_recommendations = recommendations[:OUTPUT_CANDIDATES]
     combos = [
-        _combo_to_text(i + 1, item) for i, item in enumerate(brief_recommendations)
+        combo_to_text(i + 1, item) for i, item in enumerate(brief_recommendations)
     ]
 
-    # 输出固定 JSON，便于页面稳定渲染。
-    return (
+    prompt_template = (
         "你是 DIY 装机推荐助手，请基于用户偏好与候选组合给出推荐。\n"
         "要求：\n"
-        "1) 从候选中推荐最多3套，按优先级排序。\n"
-        "2) 每套理由控制在一句话，突出场景匹配、预算、性能或性价比。\n"
+        "1) 从候选中推荐最多 {top_k} 套，按推荐优先级排序，尽量选择有所差异的。\n"
+        "2) 每套理由控制在 1-2 句话，不能不写，突出场景匹配、预算、性能或性价比。\n"
         "3) summary 写 3 句左右，先结合 user_text 分析用户真实需求，再说明预算与性能取舍，最后给出选择建议。\n"
         "4) 如果用户写了具体游戏、软件、分辨率、剪辑/渲染等需求，summary 必须点名回应这些需求。\n"
         "5) 不要编造候选组合里没有的配件，不要输出 Markdown。\n"
         "6) 仅输出 JSON。\n"
         "JSON 格式：\n"
-        "{\n"
+        "{{\n"
         '  "summary": "三句左右的需求分析与总体建议",\n'
         '  "choices": [\n'
-        '    {"rank": 1, "combo_index": 2, "reason": "理由"},\n'
-        '    {"rank": 2, "combo_index": 1, "reason": "理由"}\n'
+        '    {{"rank": 1, "combo_index": 2, "reason": "理由"}},\n'
+        '    {{"rank": 2, "combo_index": 1, "reason": "理由"}}\n'
         "  ]\n"
-        "}\n\n"
-        f"用户偏好:\n{json.dumps(prefs, ensure_ascii=False)}\n\n"
-        f"候选组合(仅前{MAX_PROMPT_COMBOS}条):\n" + "\n".join(combos)
+        "}}\n\n"
+        "用户偏好:\n{prefs_json}\n\n"
+        "候选组合(仅前 {max_combos} 条):\n{combos_text}"
+    )
+
+    return prompt_template.format(
+        top_k=prefs["top_k"],
+        prefs_json=json.dumps(prefs, ensure_ascii=False),
+        max_combos=OUTPUT_CANDIDATES,
+        combos_text="\n".join(combos)
     )
 
 

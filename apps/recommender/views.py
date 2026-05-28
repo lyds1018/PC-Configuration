@@ -9,8 +9,8 @@ from django.shortcuts import render
 from pc_builder.models import Cpu
 
 from .agent import run_agent_recommendation, warmup_agent_client
-from .recommendation import RecommendationRequest, recommend_builds
-from .scoring import WORKLOAD_GAME
+from .service.recommendation import RecommendationRequest, recommend_builds
+from .service.utils import WORKLOAD_GAME
 
 
 def brand_options(queryset):
@@ -103,7 +103,7 @@ def build_recommendation_result(form_data):
             cpu_brand=form_data["cpu_brand"],
             gpu_chip_brand=form_data["gpu_chip_brand"],
             free_text=form_data["free_text"],
-            top_k=form_data["top_k"] or 3,
+            top_k=int(form_data["top_k"] or 3),
         )
     )
     recommendations = result.get("items", [])

@@ -8,7 +8,7 @@ import math
 from dataclasses import dataclass
 from typing import Dict, Iterable, Mapping
 
-from .utils import (
+from .service.utils import (
     WORKLOAD_ALIASES,
     WORKLOAD_GAME,
     WORKLOAD_OFFICE,
