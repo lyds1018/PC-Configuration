@@ -1,10 +1,11 @@
 from typing import Dict, List, Mapping
-from .utils import OUTPUT_CANDIDATES
+from ..utils import OUTPUT_CANDIDATES
 
-ALL_PART_KEYS = ["cpu", "mb", "ram", "gpu", "storage", "cooler"]
+ALL_PART_KEYS = ["cpu", "gpu", "mb", "ram", "storage"]
 
 
 def part_id(item: Mapping[str, object], key: str) -> object:
+    """获取配件的唯一标识"""
     part = (
         item.get("parts", {}).get(key) if isinstance(item.get("parts"), dict) else None
     )
@@ -12,13 +13,14 @@ def part_id(item: Mapping[str, object], key: str) -> object:
 
 
 def core_signature(item: Mapping[str, object]) -> tuple[object, ...]:
+    """获取组合的核心特征签名"""
     return tuple(part_id(item, key) for key in ("cpu", "gpu", "mb", "ram", "storage"))
 
 
 def is_diverse(
     candidate: Mapping[str, object], selected: List[Dict[str, object]]
 ) -> bool:
-    '''检查组合多样性。'''
+    """检查组合多样性。"""
     candidate_price = float(candidate.get("total_price", 0))
 
     for item in selected:
@@ -50,7 +52,7 @@ def is_diverse(
 
 
 def select_diverse_items(feasible: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    '''选取多样性组合。'''
+    """选取多样性组合。"""
     selected: List[Dict[str, object]] = []
     
     for item in feasible:

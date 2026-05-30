@@ -9,7 +9,7 @@ from django.shortcuts import render
 from pc_builder.models import Cpu
 
 from .agent import run_agent_recommendation, warmup_agent_client
-from .service.recommendation import RecommendationRequest, recommend_builds
+from .service.recommend.recommendation import RecommendationRequest, recommend_builds
 from .service.utils import WORKLOAD_GAME
 
 

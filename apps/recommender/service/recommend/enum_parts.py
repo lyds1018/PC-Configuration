@@ -1,28 +1,31 @@
 from typing import Dict, List, Mapping
 
-from ..scoring import score_build
-from .utils import (
+from ..score.scoring import score_build
+from ..utils import (
     MAX_CANDIDATES,
     is_compatible,
-    obj_to_score_dict,
     part_price,
     scale_0_100,
     sum_price,
+    to_score_dict,
 )
 
 
 def build_candidate_item(
-    cpu, mb, ram, storage, gpu, case, psu, cooler, total_price, workload, stats
+    cpu, mb, ram, storage, gpu, case, psu, cooler, total_price, workload, norm_bounds
 ):
+    """计算单个组合的总评分、各配件评分及性价比。"""
     scores = score_build(
-        cpu=obj_to_score_dict(cpu),
-        gpu=obj_to_score_dict(gpu),
-        ram=obj_to_score_dict(ram),
-        storage=obj_to_score_dict(storage),
-        stats=stats,
+        cpu=to_score_dict(cpu),
+        gpu=to_score_dict(gpu),
+        ram=to_score_dict(ram),
+        storage=to_score_dict(storage),
+        bounds=norm_bounds,
         workload=workload,
     )
-    combo_value = scores["total_score"] / max(total_price, 1.0)
+    combo_value = scores["total_score"] / max(
+        total_price, 1.0
+    )  # 性价比 = 性能分 / 价格
     scores["cpu_score_100"] = scale_0_100(scores["cpu_score"])
     scores["gpu_score_100"] = scale_0_100(scores["gpu_score"])
     scores["ram_score_100"] = scale_0_100(scores["ram_score"])
@@ -46,7 +49,7 @@ def build_candidate_item(
 
 
 def build_price_bounds(parts: Mapping[str, List[object]]) -> Dict[str, float]:
-    """计算枚举各阶段配件价格上下界。"""
+    """计算各枚举阶段剩余配件总价上下界。"""
 
     stage_parts = {
         "cpu": ["mbs", "rams", "gpus", "cases", "psus", "storages", "coolers"],
@@ -65,17 +68,17 @@ def build_price_bounds(parts: Mapping[str, List[object]]) -> Dict[str, float]:
         for key in {part for values in stage_parts.values() for part in values}
     }
 
-    bounds = {}
+    price_bounds = {}
 
     for stage, categories in stage_parts.items():
-        bounds[f"min_after_{stage}"] = sum(
+        price_bounds[f"min_after_{stage}"] = sum(
             category_bounds[key][0] for key in categories
         )
-        bounds[f"max_after_{stage}"] = sum(
+        price_bounds[f"max_after_{stage}"] = sum(
             category_bounds[key][1] for key in categories
         )
 
-    return bounds
+    return price_bounds
 
 
 def still_fit_budget(
@@ -85,6 +88,7 @@ def still_fit_budget(
     budget_min: float,
     budget_max: float,
 ) -> bool:
+    """判断 当前价格 + 剩余配件总价上下界 是否仍满足预算范围。"""
     if current_price + min_remaining > budget_max:
         return False
     if current_price + max_remaining < budget_min:
@@ -96,7 +100,7 @@ def iter_cpu_mb_ram(
     parts: Mapping[str, List[object]],
     budget_min: float,
     budget_max: float,
-    bounds: Mapping[str, float],
+    price_bounds: Mapping[str, float],
 ):
     """枚举 CPU + 主板 + 内存 的可行组合。"""
     for cpu in parts["cpus"]:
@@ -104,8 +108,8 @@ def iter_cpu_mb_ram(
 
         if not still_fit_budget(
             cpu_price,
-            bounds["min_after_cpu"],
-            bounds["max_after_cpu"],
+            price_bounds["min_after_cpu"],
+            price_bounds["max_after_cpu"],
             budget_min,
             budget_max,
         ):
@@ -116,8 +120,8 @@ def iter_cpu_mb_ram(
 
             if not still_fit_budget(
                 cpu_mb_price,
-                bounds["min_after_cpu_mb"],
-                bounds["max_after_cpu_mb"],
+                price_bounds["min_after_cpu_mb"],
+                price_bounds["max_after_cpu_mb"],
                 budget_min,
                 budget_max,
             ) or not is_compatible({"cpu": cpu, "mb": mb}):
@@ -128,8 +132,8 @@ def iter_cpu_mb_ram(
 
                 if not still_fit_budget(
                     total_price,
-                    bounds["min_after_cpu_mb_ram"],
-                    bounds["max_after_cpu_mb_ram"],
+                    price_bounds["min_after_cpu_mb_ram"],
+                    price_bounds["max_after_cpu_mb_ram"],
                     budget_min,
                     budget_max,
                 ) or not is_compatible({"cpu": cpu, "mb": mb, "ram": ram}):
@@ -145,7 +149,7 @@ def iter_gpu_case_psu(
     ram,
     budget_min: float,
     budget_max: float,
-    bounds: Mapping[str, float],
+    price_bounds: Mapping[str, float],
 ):
     """枚举 GPU + 机箱 + 电源 的可行组合。"""
 
@@ -156,8 +160,8 @@ def iter_gpu_case_psu(
 
         if not still_fit_budget(
             gpu_price,
-            bounds["min_after_gpu"],
-            bounds["max_after_gpu"],
+            price_bounds["min_after_gpu"],
+            price_bounds["max_after_gpu"],
             budget_min,
             budget_max,
         ):
@@ -168,8 +172,8 @@ def iter_gpu_case_psu(
 
             if not still_fit_budget(
                 case_price,
-                bounds["min_after_gpu_case"],
-                bounds["max_after_gpu_case"],
+                price_bounds["min_after_gpu_case"],
+                price_bounds["max_after_gpu_case"],
                 budget_min,
                 budget_max,
             ) or not is_compatible({"mb": mb, "gpu": gpu, "case": case}):
@@ -180,8 +184,8 @@ def iter_gpu_case_psu(
 
                 if not still_fit_budget(
                     total_price,
-                    bounds["min_after_gpu_case_psu"],
-                    bounds["max_after_gpu_case_psu"],
+                    price_bounds["min_after_gpu_case_psu"],
+                    price_bounds["max_after_gpu_case_psu"],
                     budget_min,
                     budget_max,
                 ) or not is_compatible(
@@ -246,22 +250,22 @@ def collect_feasible_candidates(
     workload: str,
     budget_min: float,
     budget_max: float,
-    stats,
+    norm_bounds,
 ):
     """枚举过滤满足预算与兼容性约束的候选组合。"""
 
     feasible: List[Dict[str, object]] = []
 
-    pair_counts: Dict[tuple[object, object], int] = {}
+    cpu_gpu_counts: Dict[tuple[object, object], int] = {}
     max_cpu_gpu = 8
 
-    bounds = build_price_bounds(parts)
+    price_bounds = build_price_bounds(parts)
 
     for cpu, mb, ram in iter_cpu_mb_ram(
         parts,
         budget_min,
         budget_max,
-        bounds,
+        price_bounds,
     ):
         for gpu, case, psu in iter_gpu_case_psu(
             parts,
@@ -270,14 +274,14 @@ def collect_feasible_candidates(
             ram,
             budget_min,
             budget_max,
-            bounds,
+            price_bounds,
         ):
             pair_key = (
                 getattr(cpu, "id", getattr(cpu, "name", None)),
                 getattr(gpu, "id", getattr(gpu, "name", None)),
             )
 
-            if pair_counts.get(pair_key, 0) >= max_cpu_gpu:
+            if cpu_gpu_counts.get(pair_key, 0) >= max_cpu_gpu:
                 continue
 
             for storage, cooler, total_price in iter_storage_cooler_candidates(
@@ -303,14 +307,14 @@ def collect_feasible_candidates(
                         cooler=cooler,
                         total_price=total_price,
                         workload=workload,
-                        stats=stats,
+                        norm_bounds=norm_bounds,
                     )
                 )
 
                 # 更新 CPU + GPU 组合计数器
-                pair_counts[pair_key] = pair_counts.get(pair_key, 0) + 1
+                cpu_gpu_counts[pair_key] = cpu_gpu_counts.get(pair_key, 0) + 1
 
-                if pair_counts[pair_key] >= max_cpu_gpu:
+                if cpu_gpu_counts[pair_key] >= max_cpu_gpu:
                     break
 
                 if len(feasible) >= MAX_CANDIDATES:

@@ -5,24 +5,26 @@
 
 from typing import Dict, List, Mapping
 
-from ..scoring import build_normalization_stats
+from ..score.bounds import build_all_bounds
+from ..utils import (
+    RecommendationRequest,
+    normalize_budget_range,
+    to_score_dict,
+)
 from .enum_parts import collect_feasible_candidates
 from .process_parts import order_candidate_parts, preference_parts, price_score
 from .select_parts import select_diverse_items
-from .utils import (
-    RecommendationRequest,
-    normalize_budget_range,
-    obj_to_score_dict,
-)
 
 
-def build_scoring_stats(parts: Mapping[str, List[object]]):
-    """构建归一化的评分统计数据, 供后续评分函数使用"""
-    return build_normalization_stats(
-        cpus=[obj_to_score_dict(x) for x in parts["cpus"]],
-        gpus=[obj_to_score_dict(x) for x in parts["gpus"]],
-        rams=[obj_to_score_dict(x) for x in parts["rams"]],
-        storages=[obj_to_score_dict(x) for x in parts["storages"]],
+def build_scoring_bounds(parts: Mapping[str, List[object]]):
+    """计算候选配件的归一化边界数据。"""
+    return build_all_bounds(
+        cpus=[
+            to_score_dict(x) for x in parts["cpus"]
+        ],  # 每个 cpu 对象转换为统一的评分字段字典
+        gpus=[to_score_dict(x) for x in parts["gpus"]],
+        rams=[to_score_dict(x) for x in parts["rams"]],
+        storages=[to_score_dict(x) for x in parts["storages"]],
     )
 
 
@@ -33,19 +35,18 @@ def recommend_builds(params: RecommendationRequest) -> Dict[str, object]:
 
     candidate_parts = preference_parts(params)  # 偏好过滤
     candidate_parts = order_candidate_parts(candidate_parts, workload)  # 按性能字段排序
-
-    stats = build_scoring_stats(candidate_parts)  # 构建归一化的评分统计数据
+    norm_bounds = build_scoring_bounds(candidate_parts)  # 计算归一化边界
 
     feasible = collect_feasible_candidates(
         candidate_parts,
         workload=workload,
         budget_min=budget_min,
         budget_max=budget_max,
-        stats=stats,
-    )  # 枚举过滤可行组合
+        norm_bounds=norm_bounds,
+    )
 
-    feasible = price_score(feasible)  # 计算性价比分数
-    top_items = select_diverse_items(feasible)  # 返回多样化组合
+    feasible = price_score(feasible)  # 处理性价比数值并排序
+    top_items = select_diverse_items(feasible)
 
     return {
         "items": top_items,

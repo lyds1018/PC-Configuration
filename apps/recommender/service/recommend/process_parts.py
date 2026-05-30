@@ -1,9 +1,10 @@
 import random
-from .utils import normalize_brand, to_float, to_int, RecommendationRequest
+from ..utils import normalize_brand, to_float, to_int, RecommendationRequest
 from pc_builder.models import Case, Cpu, CpuCooler, Gpu, Mb, Psu, Ram, Storage
 from typing import Dict, List
 
-def brand_filter(queryset, brand: str):
+def cpu_brand_filter(queryset, brand: str):
+    """过滤CPU品牌"""
     normalized = normalize_brand(brand)
     if not normalized:
         return queryset
@@ -19,6 +20,7 @@ def brand_filter(queryset, brand: str):
 
 
 def gpu_chip_brand_filter(queryset, chip_brand: str):
+    """过滤GPU芯片品牌"""
     normalized = normalize_brand(chip_brand)
     if not normalized:
         return queryset
@@ -26,7 +28,7 @@ def gpu_chip_brand_filter(queryset, chip_brand: str):
 
 
 def evenly_sample(queryset, limit: int):
-    '''按价格均匀抽样'''
+    """按价格均匀抽样"""
     items = list(queryset.order_by("price"))
     total_count = len(items)
 
@@ -46,7 +48,8 @@ def evenly_sample(queryset, limit: int):
 
 
 def preference_parts(params: RecommendationRequest) -> Dict[str, List[object]]:
-    cpu_qs = brand_filter(Cpu.objects.all(), params.cpu_brand)
+    """根据用户偏好过滤配件。"""
+    cpu_qs = cpu_brand_filter(Cpu.objects.all(), params.cpu_brand)
     gpu_qs = gpu_chip_brand_filter(Gpu.objects.all(), params.gpu_chip_brand)
 
     return {
@@ -101,21 +104,23 @@ def order_candidate_parts(
 
 
 def price_score(feasible: List[Dict[str, object]]):
-    """按性能分值排序，计算出性价比分值。"""
+    """按评分与性价比排序，并对性价比做分位映射。"""
     trimmed = feasible
     trimmed.sort(
         key=lambda x: (x["scores"]["total_score"], x["combo_value"]), reverse=True
     )
 
-    # 分位映射
     sorted_by_value = sorted(trimmed, key=lambda x: x["combo_value"])
     n = len(sorted_by_value)
+
+    # 如果只有一个组合，返回默认分值
     if n <= 1:
-        trimmed[0]["combo_value_100"] = 70.0
+        trimmed[0]["combo_value_100"] = 80.0
         return trimmed
 
+    # 将分位值映射到 [35, 95]
     for rank, item in enumerate(sorted_by_value):
         percentile = rank / (n - 1)
-        # 将分位值映射到 [35, 95]
         item["combo_value_100"] = 35.0 + percentile * 60.0
+    
     return trimmed
