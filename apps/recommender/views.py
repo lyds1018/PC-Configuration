@@ -12,9 +12,13 @@ from .agent import run_agent_recommendation, warmup_agent_client
 from .service.recommend.recommendation import RecommendationRequest, recommend_builds
 from .service.utils import WORKLOAD_GAME
 
+GPU_CHIP_BRAND_OPTIONS = ["AMD", "NVIDIA"]
+LAST_FORM_SESSION_KEY = "recommender_last_form_data"
+EMPTY_REASON = "—"
+
 
 def brand_options(queryset):
-    """提取并排序品牌列表，用于渲染筛选选项。"""
+    """提取并排序品牌列表(cpu/gpu)，用于渲染筛选选项。"""
     values = (
         queryset.exclude(brand__isnull=True)
         .exclude(brand="")
@@ -25,50 +29,17 @@ def brand_options(queryset):
     return list(values)
 
 
-GPU_CHIP_BRAND_OPTIONS = ["AMD", "NVIDIA"]
-LAST_FORM_SESSION_KEY = "recommender_last_form_data"
-EMPTY_REASON = "—"
-
-
 def extract_form_data(request):
-    """统一读取推荐页查询参数，避免多处重复取值逻辑。"""
+    """读取推荐页请求参数。"""
     return {
         "budget_min": request.GET.get("budget_min", ""),
         "budget_max": request.GET.get("budget_max", ""),
-        "workload": request.GET.get("workload", WORKLOAD_GAME),
+        "workload": request.GET.get("workload", WORKLOAD_GAME),  # 默认游戏
         "cpu_brand": request.GET.get("cpu_brand", ""),
         "gpu_chip_brand": request.GET.get("gpu_chip_brand", ""),
         "free_text": request.GET.get("free_text", ""),
-        "top_k": request.GET.get("top_k", "3"),
+        "top_k": request.GET.get("top_k", "3"),  # 默认返回3套配置
     }
-
-
-def agent_value(agent_result, key, default=""):
-    """安全读取 AI 助手输出字段，统一做字符串清洗。"""
-    if not isinstance(agent_result, dict):
-        return default
-    return str(agent_result.get(key, default)).strip()
-
-
-def extract_choice_reason_map(agent_result):
-    """提取 AI 返回的候选理由映射：combo_index -> reason。"""
-    mapping = {}
-    choices = agent_result.get("choices", []) if isinstance(agent_result, dict) else []
-    for choice in choices:
-        if not isinstance(choice, dict):
-            continue
-        combo_index = choice.get("combo_index")
-        reason = str(choice.get("reason", "")).strip()
-        if isinstance(combo_index, int) and combo_index > 0 and reason:
-            mapping[combo_index] = reason
-    return mapping
-
-
-def inject_agent_reason(recommendations, agent_result):
-    choice_reason_map = extract_choice_reason_map(agent_result)
-    for idx, item in enumerate(recommendations, start=1):
-        if isinstance(item, dict):
-            item["reason"] = choice_reason_map.get(idx, EMPTY_REASON)
 
 
 def build_default_form_data(request):
@@ -88,13 +59,40 @@ def build_default_form_data(request):
     return default
 
 
+def read_agent(agent_result, key, default=""):
+    """读取智能体输出中的指定字段。"""
+    if not isinstance(agent_result, dict):
+        return default
+    return str(agent_result.get(key, default)).strip()
+
+
+def inject_agent_reason(recommendations, agent_result):
+    """给组合注入推荐理由，再按 Agent 推荐排名排序"""
+    selected = []
+
+    # 过滤出 Agent 推荐列表中的组合，并注入推荐理由
+    choices = agent_result.get("choices", [])
+    for choice in choices:
+        item = recommendations[choice.get("combo_index") - 1]
+
+        item["reason"] = choice.get("reason", "").strip()
+
+        selected.append((choice["rank"], item))
+
+        # 按 Agent 推荐排名排序
+        selected.sort(key=lambda x: x[0])
+
+    return [item for _, item in selected]
+
+
 def build_recommendation_result(form_data):
     """
-    组合推荐流程：
-    1. 解析自由文本并补全缺失表单项
-    2. 调用推荐引擎生成组合
-    3. 调用 agent 生成解释并回填到每个组合
+    智能推荐流程：
+    1. 推荐算法生成候选组合
+    2. Agent 结合用户需求对候选组合进行二次筛选与排序
+    3. 生成推荐理由，返回推荐方案
     """
+    # 推荐算法生成候选组合
     result = recommend_builds(
         RecommendationRequest(
             budget_min=form_data["budget_min"] or 0,
@@ -105,17 +103,20 @@ def build_recommendation_result(form_data):
             free_text=form_data["free_text"],
         )
     )
+
+    # Agent 智能推荐
     recommendations = result.get("items", [])
     meta = result.get("meta", {})
     agent_result = run_agent_recommendation(
-        user_text=form_data["free_text"],
         form_data=form_data,
         recommendations=recommendations,
     )
-    inject_agent_reason(recommendations, agent_result)
 
-    top_k = int(form_data["top_k"])
-    recommendations = recommendations[:top_k]
+    # 注入推荐理由并按 Agent 推荐排名排序
+    recommendations = inject_agent_reason(
+        recommendations,
+        agent_result,
+    )
 
     return form_data, recommendations, meta, agent_result
 
@@ -159,7 +160,7 @@ def recommend_result_data(request):
 
     rows = [recommendation_item_to_row(item) for item in recommendations]
     request.session["recommender_last_rows"] = rows
-    request.session["recommender_last_agent_summary"] = agent_value(
+    request.session["recommender_last_agent_summary"] = read_agent(
         agent_result, "summary"
     )
 
@@ -169,8 +170,8 @@ def recommend_result_data(request):
             "agent_enabled": bool(agent_result.get("enabled"))
             if isinstance(agent_result, dict)
             else False,
-            "agent_summary": agent_value(agent_result, "summary"),
-            "agent_reason": agent_value(agent_result, "reason"),
+            "agent_summary": read_agent(agent_result, "summary"),
+            "agent_reason": read_agent(agent_result, "reason"),
             "rows": rows,
         }
     )

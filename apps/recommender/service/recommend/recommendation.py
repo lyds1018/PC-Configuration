@@ -29,7 +29,7 @@ def build_scoring_bounds(parts: Mapping[str, List[object]]):
 
 
 def recommend_builds(params: RecommendationRequest) -> Dict[str, object]:
-    """推荐程序入口：在预算与兼容性约束下生成并返回 Top-K 组合。"""
+    """推荐程序入口：在预算与兼容性约束下生成并返回组合。"""
     workload = params.workload
     budget_min, budget_max = normalize_budget_range(params)
 

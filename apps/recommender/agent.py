@@ -41,11 +41,11 @@ def combo_to_text(index: int, item: Mapping[str, object]) -> str:
 
 
 def build_agent_prompt(
-    user_text: str,
     form_data: Mapping[str, object],
     recommendations: Sequence[Mapping[str, object]],
 ) -> str:
     """构建 JSON 输出的提示词模板。"""
+    user_text = form_data["free_text"]
     prefs = {
         "user_text": user_text or "",
         "budget_min": form_data.get("budget_min", ""),
@@ -55,37 +55,62 @@ def build_agent_prompt(
         "gpu_chip_brand": form_data.get("gpu_chip_brand", ""),
         "top_k": form_data.get("top_k", 3),
     }
-    brief_recommendations = recommendations[:OUTPUT_CANDIDATES]
     combos = [
-        combo_to_text(i + 1, item) for i, item in enumerate(brief_recommendations)
+        combo_to_text(i + 1, item) for i, item in enumerate(recommendations)
     ]
 
     prompt_template = (
-        "你是 DIY 装机推荐助手，请基于用户偏好与候选组合给出推荐。\n"
-        "要求：\n"
-        "1) 从候选中最推荐的 {top_k} 套，按推荐优先级排序，未选的放在最后，尽量选择有所差异的。\n"
-        "2) 每套理由控制在 1-2 句话，选中的组合必须写，突出配件与当前场景匹配的特点,不必涉及已经展示的性价比和性能分数。\n"
-        "3) summary 写 3 句左右，先结合 user_text 分析用户真实需求、预算、配件特点、整机性能、性价比，不要涉及未选的组合，最后给出选择建议。\n"
-        "4) 如果用户写了具体游戏、软件、分辨率、剪辑/渲染等需求，summary 必须点名回应这些需求。\n"
-        "5) 不要编造候选组合里没有的配件，不要输出 Markdown。\n"
-        "6) 仅输出 JSON。\n"
+        "你是专业 DIY 装机推荐助手，请根据用户需求和候选配置进行分析与推荐。\n\n"
+        "任务要求：\n"
+        "1. 必须从候选组合中选择恰好 {top_k} 套推荐方案。\n"
+        "2. choices 数组长度必须等于 {top_k}。\n"
+        "3. rank 从 1 开始连续编号，数字越小表示越推荐。\n"
+        "4. combo_index 必须来自候选组合编号。\n"
+        "5. 每个 choice 都必须包含非空 reason，不允许遗漏。\n"
+        "6. 推荐时优先考虑用户需求、预算匹配度、整机均衡性和配件搭配合理性。\n"
+        "7. 尽量选择具有差异化特点的方案，不要推荐几乎相同的组合。\n"
+        "8. 不要编造候选组合中不存在的配件、参数或价格信息。\n"
+        "9. 不要提及性能分数、性价比分数、排名计算过程等系统内部信息。\n"
+        "10. 仅输出 JSON，不要输出 Markdown、解释文字或额外内容。\n\n"
+        "reason 编写要求：\n"
+        "- 每条控制在 1~2 句话。\n"
+        "- 结合用户需求说明为什么推荐该方案。\n"
+        "- 突出 CPU、GPU、内存、存储等关键配件的搭配特点。\n"
+        "- 不要写空泛评价，例如“性能不错”“值得购买”。\n"
+        "- 不要重复 summary 内容。\n\n"
+        "summary 编写要求：\n"
+        "- 控制在 3 句话左右。\n"
+        "- 先分析用户真实需求和预算范围。\n"
+        "- 再分析排名第 1 的推荐方案为何最匹配。\n"
+        "- 最后给出明确购买建议。\n"
+        "- 如果用户提到了具体游戏、软件、AI训练、渲染、建模、直播、分辨率、剪辑等场景，必须明确回应这些需求。\n"
+        "- 不要讨论未入选方案。\n\n"
+        "输出前检查：\n"
+        "- choices 数量是否等于 {top_k}\n"
+        "- 每个 choice 是否都包含 rank、combo_index、reason\n"
+        "- reason 是否为空\n"
+        "- rank 是否从 1 连续递增\n"
+        "- combo_index 是否来自候选列表\n"
+        "- JSON 是否合法\n\n"
         "JSON 格式：\n"
         "{{\n"
-        '  "summary": "三句左右的需求分析与总体建议",\n'
         '  "choices": [\n'
-        '    {{"rank": 1, "combo_index": 2, "reason": "理由"}},\n'
-        '    {{"rank": 2, "combo_index": 1, "reason": "理由"}}\n'
-        "  ]\n"
+        '    {{"rank": 1, "combo_index": 2, "reason": "推荐理由"}},\n'
+        '    {{"rank": 2, "combo_index": 5, "reason": "推荐理由"}}\n'
+        "  ],\n"
+        '  "summary": "总体分析与购买建议"\n'
         "}}\n\n"
-        "用户偏好:\n{prefs_json}\n\n"
-        "候选组合(仅前 {max_combos} 条):\n{combos_text}"
+        "用户偏好：\n"
+        "{prefs_json}\n\n"
+        "候选组合（共 {max_combos} 条）：\n"
+        "{combos_text}"
     )
 
     return prompt_template.format(
         top_k=prefs["top_k"],
         prefs_json=json.dumps(prefs, ensure_ascii=False),
+        combos_text="\n".join(combos),
         max_combos=OUTPUT_CANDIDATES,
-        combos_text="\n".join(combos)
     )
 
 
@@ -151,74 +176,77 @@ def warmup_agent_client() -> bool:
 
 
 def run_agent_recommendation(
-    user_text: str,
     form_data: Mapping[str, object],
     recommendations: Sequence[Mapping[str, object]],
 ) -> Dict[str, object]:
     api_key = os.getenv(API_KEY_ENV_VAR, "").strip()
+
+    # 检查 API Key
     if not api_key:
         return {
             "enabled": False,
-            "reason": "未配置 " + API_KEY_ENV_VAR + "，已使用规则推荐。",
+            "reason": f"未配置 {API_KEY_ENV_VAR}，已使用规则推荐。",
         }
+
+    # 检查是否有候选组合
     if not recommendations:
-        return {"enabled": False, "reason": "暂无候选组合，无法进行智能体分析。"}
+        return {
+            "enabled": False,
+            "reason": "暂无候选组合，无法进行智能体分析。",
+        }
 
-    model = MODEL
-    prompt = build_agent_prompt(user_text, form_data, recommendations)
+    # 调用智能体
     client = get_agent_client()
-    if client is None:
-        return {"enabled": False, "reason": "未安装 openai SDK，已回退规则推荐。"}
-
     try:
         completion = client.chat.completions.create(
-            model=model,
+            model=MODEL,
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "你将作为装机推荐顾问，为用户输出安全、准确、结构化的建议。"
+                    "content": "你将作为装机推荐顾问，为用户输出安全、准确、结构化的建议。",
+                },
+                {
+                    "role": "user",
+                    # 拼接用户需求和候选组合，构建提示词
+                    "content": build_agent_prompt(
+                        form_data,
+                        recommendations,
                     ),
                 },
-                {"role": "user", "content": prompt},
             ],
             temperature=TEMPERATURE,
             extra_body={"thinking": {"type": THINKING_TYPE}},
             timeout=AGENT_TIMEOUT_SECONDS,
         )
-        output_text = ""
-        if completion and completion.choices:
-            output_text = str(completion.choices[0].message.content or "")
+
+        output_text = completion.choices[0].message.content or ""
+
     except Exception as exc:
-        return {"enabled": False, "reason": f"智能体调用失败，已回退规则推荐：{exc}"}
+        return {
+            "enabled": False,
+            "reason": f"智能体调用失败：{exc}",
+        }
+
+    # 解析智能体输出
     parsed = parse_agent_json(output_text)
     if not parsed:
-        return {"enabled": False, "reason": "智能体返回不可解析，已回退规则推荐。"}
+        return {
+            "enabled": False,
+            "reason": "智能体返回无法解析。",
+        }
 
-    choices = parsed.get("choices")
-    if not isinstance(choices, list):
-        choices = []
-
-    normalized_choices = []
-    for choice in choices[:3]:
-        if not isinstance(choice, dict):
-            continue
-        combo_index = choice.get("combo_index")
-        if not isinstance(combo_index, int):
-            continue
-        if combo_index < 1 or combo_index > len(recommendations):
-            continue
-        normalized_choices.append(
-            {
-                "rank": choice.get("rank"),
-                "combo_index": combo_index,
-                "reason": str(choice.get("reason", "")).strip(),
-            }
-        )
+    top_k = min(
+        int(form_data.get("top_k", 3)),
+        len(recommendations),
+    )
+    choices = sorted(
+        parsed.get("choices", []),
+        key=lambda x: x["rank"],
+    )[:top_k]
 
     return {
         "enabled": True,
         "summary": str(parsed.get("summary", "")).strip(),
-        "choices": normalized_choices,
-        "model": model,
+        "choices": choices,
+        "model": MODEL,
     }
