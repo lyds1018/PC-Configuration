@@ -1,1 +1,1 @@
-# Config package for PC Configuration project
+# 配置文件

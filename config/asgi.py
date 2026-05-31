@@ -1,7 +1,3 @@
-"""
-ASGI config for PC Configuration project.
-"""
-
 import os
 import sys
 from pathlib import Path
