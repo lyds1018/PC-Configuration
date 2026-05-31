@@ -1,15 +1,14 @@
-"""装机模块静态目录配置
-
-集中维护：
-1. 会话键名与页面展示分类；
-2. 兼容性检查前置所需配件类型；
-3. 各配件类型的模型、列表列定义与检索字段
-"""
+"""装机模块数据说明"""
 
 from .models import Case, Cpu, CpuCooler, Gpu, Mb, Psu, Ram, Storage
 
+# 已选配件列表的键名
 SELECTION_SESSION_KEY = "pc_builder_selection"
 
+# 兼容性检查需求配件清单
+COMPATIBILITY_REQUIRED_KEYS = ("cpu", "mb", "ram", "case", "psu", "gpu", "storage")
+
+# 配件目录
 BUILD_CATEGORIES = [
     {"key": "cpu", "label": "CPU"},
     {"key": "cooler", "label": "CPU 散热器"},
@@ -21,14 +20,13 @@ BUILD_CATEGORIES = [
     {"key": "psu", "label": "电源"},
 ]
 
-COMPATIBILITY_REQUIRED_KEYS = ("cpu", "mb", "ram", "case", "psu", "gpu", "storage")
-
+# 配件列表配置
 PARTS_CONFIG = {
     "cpu": {
         "title": "CPU",
         "model": Cpu,
         "columns": [
-            ("name", "型号"),
+            ("name", "型号"),   # 含品牌名
             ("socket", "接口"),
             ("core_count", "核心数"),
             ("thread_count", "线程数"),
@@ -36,8 +34,8 @@ PARTS_CONFIG = {
             ("boost_clock", "睿频(GHz)"),
             ("tdp", "TDP(W)"),
             ("price", "价格(￥)"),
-        ],
-        "search_fields": ["name", "brand", "socket"],
+        ],  # 列表字段
+        "search_fields": ["name", "brand", "socket"],   # 筛选字段
     },
     "gpu": {
         "title": "显卡",

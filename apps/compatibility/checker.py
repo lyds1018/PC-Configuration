@@ -1,6 +1,6 @@
 """兼容性检查程序入口
 
-本模块负责聚合各条检查规则，并保证输出结构、执行顺序稳定
+统一调用兼容规则进行检查，返回全部问题
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ def storage_totals(parts: Dict[str, Any]) -> dict[str, int]:
     """
     统一生成存储与内存总量统计。
     """
-
     # 优先使用 totals 字段中的统计数据
     if "totals" in parts and isinstance(parts["totals"], dict):
         values = parts["totals"]
@@ -58,9 +57,8 @@ def run_checks(parts: Dict[str, Any]) -> Dict[str, Any]:
 
     返回:
         {"ok": bool, "issues": list[str]}
-        其中 ok 表示是否通过全部检查，issues 为按固定顺序汇总的问题列表。
+        其中 ok 表示是否通过全部检查, issues 为问题列表。
     """
-    # 配件缺失时传空字典
     cpu = parts.get("cpu", {})
     mb = parts.get("mb", {})
     ram = parts.get("ram", {})
@@ -71,7 +69,7 @@ def run_checks(parts: Dict[str, Any]) -> Dict[str, Any]:
 
     totals = storage_totals(parts)
 
-    # 固定顺序执行检查,统一输出结构
+    # 按序执行检查，统一返回
     issues: List[str] = []
     issues += all_checks.check_cpu_mb_socket(cpu, mb)
     issues += all_checks.check_cpu_ram(cpu, ram)

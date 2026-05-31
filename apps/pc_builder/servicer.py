@@ -3,7 +3,7 @@
 负责组装页面上下文、处理选件请求、并集中调用筛选与兼容性子服务
 视图层只保留请求分发，业务逻辑尽量落在这里
 """
-
+from django.shortcuts import get_object_or_404
 from .catalog import (
     BUILD_CATEGORIES,
     COMPATIBILITY_REQUIRED_KEYS,
@@ -26,29 +26,17 @@ from .service import (
 
 
 def build_builder_context(request):
-    """
-    整合装机主页面所需的全部动态信息。
+    """DIY 装机主页上下文处理器，选取配件刷新后返回上下文字典。"""
 
-    返回:
-        dict: 包含以下键的上下文字典
-            categories: 配件分类列表
-            selected: 已选配件对象字典
-            storage_qty: 存储设备数量
-            storage_line_price: 存储设备总价
-            total_price: 所有配件总价
-            compatibility: 兼容性检查结果
-            can_check: 是否满足兼容性检查条件
-            estimated_wattage: 估算功耗
-    """
-    # 从 session 获取用户选择并解析为配件对象
+    # 从 session 获取用户选择的配件
     selected_ids = get_session_selection(request)
     selected, total_price = resolve_selected_parts(selected_ids)
 
-    # 检查是否包含所有必需配件以进行兼容性检查
+    # 检查是否满足进行兼容性检查的条件
     can_check = all(selected.get(key) for key in COMPATIBILITY_REQUIRED_KEYS)
     compatibility = check_compatibility(selected, selected_ids, can_check)
 
-    # 计算存储设备的数量和价格
+    # 读取存储设备的数量，计算总价
     storage_qty = (
         read_quantity(selected_ids, "storage") if selected.get("storage") else 0
     )
@@ -71,71 +59,68 @@ def build_builder_context(request):
 
 
 def select_part(request, part_type, pk):
-    """
-    处理“选择配件”动作并落盘到 session。
-    对 storage 类别会额外记录数量字段。
+    """配件选择处理逻辑。"""
 
-    返回:
-        bool: 选择成功返回 True，配件类型无效返回 False
-    """
-    from django.shortcuts import get_object_or_404
-
-    # 验证配件类型是否有效
+    # 验证所选配件 ID 是否存在
     config = PARTS_CONFIG.get(part_type)
-    if not config:
-        return False
-
-    # 验证配件 ID 是否存在
     model = config["model"]
     get_object_or_404(model, id=pk)
 
-    # 保存配件选择到 session
+    # 取出 session 并更新至对应配件类型
     selected = get_session_selection(request)
     selected[part_type] = pk
 
-    # 存储设备需要额外记录数量
+    # 存储设备需要额外更新数量
     if part_type == "storage":
         qty = as_int(request.POST.get("qty") or request.GET.get("qty"), default=1)
         selected["storage_qty"] = max(1, qty)
 
+    # 保存更新后的 session
     save_session_selection(request, selected)
+
     return True
 
 
 def build_part_list_context(request, part_type):
     """
-    构建配件列表页面的上下文数据
+    构建配件列表页面的上下文处理器。
 
-    根据配件类型获取对应的配件列表，应用用户提交的筛选条件
-    （品牌、数值范围、关键字搜索等），并处理排序逻辑
+    根据配件类型获取对应的配件列表，处理用户提交的筛选/搜索/排序请求。
     """
-    # 获取配件类型配置
+
+    # 获取配置的列表字段
     config = PARTS_CONFIG.get(part_type)
-    if not config:
-        return {"invalid": True, "title": "配件"}
 
     # 解析请求参数：搜索关键字、排序字段、排序方向
     q = (request.GET.get("q") or "").strip()
     sort = (request.GET.get("sort") or "price").strip()
     direction = (request.GET.get("dir") or "asc").strip().lower()
 
-    # 构建列配置并规范化排序参数
+    # 构建对应字段组成的列表
     columns = [{"key": key, "label": label} for key, label in config["columns"]]
+
+    # 规范排序参数
     allowed_sort_fields = [col["key"] for col in columns]
     sort, direction = normalize_sort_request(sort, direction, allowed_sort_fields)
 
-    # 获取基础查询集
+    # 获取数据全集
     model = config["model"]
     base_queryset = model.objects.all()
     queryset = base_queryset
+
+    # 获取配置的筛选字段
     search_fields = config.get("search_fields") or ["name"]
 
     # 应用各类筛选器
     numeric_filters = []
     enum_filters = []
+
+    # 品牌筛选
     queryset = apply_brand_filters(
         request, model, base_queryset, queryset, enum_filters
     )
+
+    # 字段筛选（数值/类型）
     queryset = apply_column_filters(
         request,
         model,
@@ -146,16 +131,18 @@ def build_part_list_context(request, part_type):
         numeric_filters,
         enum_filters,
     )
+
+    # 关键字搜索
     queryset = apply_keyword_search(queryset, q, search_fields)
 
-    # 应用排序
+    # 排序
     order_by = f"-{sort}" if direction == "desc" else sort
     queryset = queryset.order_by(order_by)
 
-    # 构建排序 URL 前缀
+    # 构建排序 URL 前缀，即记录当前筛选条件，供后续追加筛选
     sort_query_prefix = build_sort_query_prefix(request)
 
-    # 获取用户已选配件信息
+    # 获取已选存储设备数量，供存储设备列表页面渲染
     selected_ids = get_session_selection(request)
     selected_qty = (
         read_quantity(selected_ids, "storage") if part_type == "storage" else 1

@@ -1,4 +1,4 @@
-"""配件数据模型定义"""
+"""配件数据模型"""
 
 from django.db import models
 
