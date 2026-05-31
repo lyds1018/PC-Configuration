@@ -1,23 +1,20 @@
 """配件列表筛选与排序工具
 
-本模块封装品牌筛选、枚举筛选、数值区间筛选、关键词搜索和排序参数标准化，
-用于降低视图层复杂度并统一筛选行为
+负责品牌筛选、枚举筛选、数值区间筛选、关键词搜索和排序参数标准化
 """
 
 from django.db.models import DecimalField, FloatField, IntegerField, Max, Min, Q
 
-BRAND_FIELD_NAMES = ("brand", "chip_brand", "card_brand")
-BRAND_LABEL_MAP = {
-    "brand": "品牌",
-    "chip_brand": "芯片品牌",
-    "card_brand": "显卡品牌",
-}
-ENUM_FILTER_MAX_OPTIONS = 20
-DEFAULT_ENUM_EXCLUDED_FIELDS = {"name", "brand", "chip_brand", "card_brand"}
+from .utils import (
+    BRAND_FIELD_NAMES,
+    BRAND_LABEL_MAP,
+    DEFAULT_ENUM_EXCLUDED_FIELDS,
+    ENUM_FILTER_MAX_OPTIONS,
+)
 
 
 def model_has_field(model, field_name):
-    """检查模型是否包含指定字段"""
+    """检查数据模型是否包含指定字段。"""
     try:
         model._meta.get_field(field_name)
         return True
@@ -26,7 +23,7 @@ def model_has_field(model, field_name):
 
 
 def distinct_non_empty_values(queryset, field_name):
-    """获取字段的所有非空唯一值"""
+    """获取字段的所有非空唯一值。"""
     return list(
         queryset.exclude(**{f"{field_name}__isnull": True})
         .exclude(**{field_name: ""})
@@ -37,7 +34,7 @@ def distinct_non_empty_values(queryset, field_name):
 
 
 def parse_optional_float(raw_value):
-    """解析可选的浮点数值"""
+    """解析可选的浮点数值。"""
     text = (raw_value or "").strip()
     if text == "":
         return None
@@ -48,7 +45,7 @@ def parse_optional_float(raw_value):
 
 
 def build_sort_query_prefix(request):
-    """构建排序查询参数前缀"""
+    """构建排序查询参数前缀。"""
     params = request.GET.copy()
     params.pop("sort", None)
     params.pop("dir", None)
@@ -59,7 +56,7 @@ def build_sort_query_prefix(request):
 
 
 def normalize_sort_request(sort, direction, allowed_sort_fields):
-    """规范化排序请求参数"""
+    """规范化排序请求参数。"""
     if sort not in allowed_sort_fields:
         sort = "price" if "price" in allowed_sort_fields else allowed_sort_fields[0]
     if direction not in {"asc", "desc"}:
@@ -68,7 +65,7 @@ def normalize_sort_request(sort, direction, allowed_sort_fields):
 
 
 def apply_brand_filters(request, model, base_queryset, queryset, enum_filters):
-    """应用品牌过滤器"""
+    """品牌过滤器。"""
     brand_fields = [
         field_name
         for field_name in BRAND_FIELD_NAMES
@@ -103,11 +100,7 @@ def apply_column_filters(
     numeric_filters,
     enum_filters,
 ):
-    """
-    按列配置应用过滤：
-    - 数值列：生成最小/最大范围并执行区间筛选
-    - 文本列：在可控枚举范围内生成多选过滤器
-    """
+    """字段数值/类型筛选器。"""
     for field_key, label in config["columns"]:
         try:
             field_obj = model._meta.get_field(field_key)
@@ -174,7 +167,7 @@ def apply_column_filters(
 
 
 def apply_keyword_search(queryset, q, search_fields):
-    """对配置的搜索字段执行 OR 语义的关键字模糊匹配。"""
+    """对配置的多个搜索字段进行模糊搜索。"""
     if not q:
         return queryset
 

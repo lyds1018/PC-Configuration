@@ -3,7 +3,7 @@ from .utils import read_quantity
 
 
 def resolve_selected_parts(selected_ids):
-    """解析选中的配件对象并计算总价"""
+    """解析选中的配件对象并计算总价。"""
     selected = {}
     total_price = 0.0
 

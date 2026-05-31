@@ -102,5 +102,3 @@ def estimate_wattage(selected):
 
     return tdp
 
-
-
