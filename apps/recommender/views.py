@@ -2,31 +2,19 @@
 
 负责表单参数接收、偏好归一化、推荐结果渲染与 JSON 数据接口输出
 """
-
+import threading
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
-from pc_builder.models import Cpu
 
-from .agent import run_agent_recommendation, warmup_agent_client
+from .agent import run_agent_recommendation, get_agent_client
 from .service.recommend.recommendation import RecommendationRequest, recommend_builds
-from .service.utils import WORKLOAD_GAME
-
-GPU_CHIP_BRAND_OPTIONS = ["AMD", "NVIDIA"]
-LAST_FORM_SESSION_KEY = "recommender_last_form_data"
-EMPTY_REASON = "—"
-
-
-def brand_options(queryset):
-    """提取并排序品牌列表(cpu/gpu)，用于渲染筛选选项。"""
-    values = (
-        queryset.exclude(brand__isnull=True)
-        .exclude(brand="")
-        .values_list("brand", flat=True)
-        .distinct()
-        .order_by("brand")
-    )
-    return list(values)
+from .service.utils import (
+    CPU_BRAND_OPTIONS,
+    GPU_CHIP_BRAND_OPTIONS,
+    WORKLOAD_GAME,
+    EMPTY_REASON,
+)
 
 
 def extract_form_data(request):
@@ -43,8 +31,8 @@ def extract_form_data(request):
 
 
 def build_default_form_data(request):
-    """构建推荐页默认表单数据，优先使用上次会话缓存。"""
-    default = {
+    """构建推荐页表单，优先使用上次会话缓存。"""
+    form_data = {
         "budget_min": "",
         "budget_max": "",
         "workload": WORKLOAD_GAME,
@@ -53,14 +41,17 @@ def build_default_form_data(request):
         "free_text": "",
         "top_k": "3",
     }
-    cached = request.session.get(LAST_FORM_SESSION_KEY)
+
+    # 使用上次会话内容填充
+    cached = request.session.get("recommender_last_form_data")
     if isinstance(cached, dict):
-        default.update({k: cached.get(k, v) for k, v in default.items()})
-    return default
+        form_data.update({k: cached.get(k, v) for k, v in form_data.items()})
+
+    return form_data
 
 
-def read_agent(agent_result, key, default=""):
-    """读取智能体输出中的指定字段。"""
+def read_agent(agent_result, key, default=EMPTY_REASON):
+    """读取智能体输出中的指定文本类字段，并转字符串返回。"""
     if not isinstance(agent_result, dict):
         return default
     return str(agent_result.get(key, default)).strip()
@@ -79,8 +70,8 @@ def inject_agent_reason(recommendations, agent_result):
 
         selected.append((choice["rank"], item))
 
-        # 按 Agent 推荐排名排序
-        selected.sort(key=lambda x: x[0])
+    # 按 Agent 推荐排名排序
+    selected.sort(key=lambda x: x[0])
 
     return [item for _, item in selected]
 
@@ -121,63 +112,8 @@ def build_recommendation_result(form_data):
     return form_data, recommendations, meta, agent_result
 
 
-@login_required
-def recommend_page(request):
-    # 页面打开时预热一次 LLM client，降低后续首次推荐时延。
-    warmup_agent_client()
-    form_data = build_default_form_data(request)
-    return render(
-        request,
-        "recommender/recommend.html",
-        {
-            "form_data": form_data,
-            "cpu_brands": brand_options(Cpu.objects.all()),
-            "gpu_chip_brands": GPU_CHIP_BRAND_OPTIONS,
-        },
-    )
-
-
-@login_required
-def recommend_result_page(request):
-    form_data = extract_form_data(request)
-    return render(
-        request,
-        "recommender/recommend_result.html",
-        {
-            "form_data": form_data,
-        },
-    )
-
-
-@login_required
-def recommend_result_data(request):
-    """返回推荐结果 JSON，供前端结果页异步加载。"""
-    form_data = extract_form_data(request)
-    form_data, recommendations, meta, agent_result = build_recommendation_result(
-        form_data
-    )
-    request.session[LAST_FORM_SESSION_KEY] = form_data
-
-    rows = [recommendation_item_to_row(item) for item in recommendations]
-    request.session["recommender_last_rows"] = rows
-    request.session["recommender_last_agent_summary"] = read_agent(
-        agent_result, "summary"
-    )
-
-    return JsonResponse(
-        {
-            "meta": meta,
-            "agent_enabled": bool(agent_result.get("enabled"))
-            if isinstance(agent_result, dict)
-            else False,
-            "agent_summary": read_agent(agent_result, "summary"),
-            "agent_reason": read_agent(agent_result, "reason"),
-            "rows": rows,
-        }
-    )
-
-
 def part_payload(obj):
+    """提取配件名称、价格，用于保存进方案中"""
     if obj is None:
         return {"name": "", "price": 0.0}
     return {
@@ -189,6 +125,7 @@ def part_payload(obj):
 def recommendation_item_to_row(item):
     parts = item.get("parts", {})
     scores = item.get("scores", {})
+
     cpu = parts.get("cpu")
     mb = parts.get("mb")
     ram = parts.get("ram")
@@ -197,6 +134,7 @@ def recommendation_item_to_row(item):
     case = parts.get("case")
     psu = parts.get("psu")
     cooler = parts.get("cooler")
+
     return {
         "cpu": getattr(cpu, "name", ""),
         "mb": getattr(mb, "name", ""),
@@ -221,3 +159,66 @@ def recommendation_item_to_row(item):
         "combo_value_100": float(item.get("combo_value_100", 0.0) or 0.0),
         "reason": str(item.get("reason", EMPTY_REASON) or EMPTY_REASON),
     }
+
+
+@login_required
+def recommend_page(request):
+    """渲染智能推荐首页框架，初始化智能体。"""
+    
+    # 后台线程并发完成智能体的初始化
+    threading.Thread(target=get_agent_client, daemon=True).start()
+
+    form_data = build_default_form_data(request)
+    return render(
+        request,
+        "recommender/recommend.html",
+        {
+            "form_data": form_data,
+            "cpu_brands": CPU_BRAND_OPTIONS,
+            "gpu_chip_brands": GPU_CHIP_BRAND_OPTIONS,
+        },
+    )
+
+
+@login_required
+def recommend_result_page(request):
+    """渲染推荐结果页面框架"""
+    form_data = extract_form_data(request)
+    return render(
+        request,
+        "recommender/recommend_result.html",
+        {
+            "form_data": form_data,
+        },
+    )
+
+
+@login_required
+def recommend_result_data(request):
+    """填充推荐结果页面数据。"""
+    form_data = extract_form_data(request)
+
+    # 调用智能推荐算法
+    form_data, recommendations, meta, agent_result = build_recommendation_result(
+        form_data
+    )
+    rows = [recommendation_item_to_row(item) for item in recommendations]
+    error_reason = read_agent(agent_result, "error_reason")
+    agent_summary = read_agent(agent_result, "summary")
+    agent_enabled = (
+        bool(agent_result.get("enabled")) if isinstance(agent_result, dict) else False
+    )
+
+    request.session["recommender_last_form_data"] = form_data
+    request.session["recommender_last_rows"] = rows
+    request.session["recommender_last_agent_summary"] = agent_summary
+
+    return JsonResponse(
+        {
+            "meta": meta,
+            "rows": rows,
+            "agent_enabled": agent_enabled,
+            "error_reason": error_reason,
+            "agent_summary": agent_summary,
+        }
+    )

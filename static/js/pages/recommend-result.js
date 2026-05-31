@@ -66,9 +66,9 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!resultStage || !payload) return;
         const meta = payload.meta || {};
         const rows = payload.rows || [];
+        const errorReason = payload.error_reason || "当前未启用智能体推荐。";
         const agentEnabled = !!payload.agent_enabled;
         const summary = payload.agent_summary || "";
-        const agentReason = payload.agent_reason || "当前未启用智能体推荐。";
         const metaReason = meta.reason || "";
 
         const rowsHtml = rows
@@ -113,7 +113,7 @@ document.addEventListener("DOMContentLoaded", function () {
             ${
                 agentEnabled
                     ? `<div class="typewriter-wrap"><span id="agent-summary-text"></span><span class="typewriter-cursor" id="agent-summary-cursor">|</span></div>`
-                    : `<div class="text-muted">${esc(agentReason)}</div>`
+                    : `<div class="text-muted">${esc(errorReason)}</div>`
             }
           </div>
           <div class="card">

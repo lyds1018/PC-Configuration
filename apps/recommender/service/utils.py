@@ -8,7 +8,7 @@ from compatibility import run_checks
 
 # 组合枚举常量
 MAX_CANDIDATES = 1024
-OUTPUT_CANDIDATES = 6
+OUTPUT_CANDIDATES = 8
 
 # 应用场景常量
 WORKLOAD_GAME = "game"
@@ -87,6 +87,19 @@ TOTAL_WEIGHTS = {
     WORKLOAD_OFFICE: {"cpu": 0.40, "gpu": 0.10, "ram": 0.30, "storage": 0.20},
     WORKLOAD_PRODUCTIVITY: {"cpu": 0.35, "gpu": 0.30, "ram": 0.20, "storage": 0.15},
 }
+
+# 页面渲染常量
+CPU_BRAND_OPTIONS = ["AMD", "Intel"]
+GPU_CHIP_BRAND_OPTIONS = ["AMD", "NVIDIA"]
+EMPTY_REASON = "—"
+
+# 智能体配置常量
+MODEL = "deepseek-v4-flash"
+BASE_URL = "https://api.deepseek.com"
+TEMPERATURE = 0.8
+THINKING_TYPE = "disabled"
+API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+AGENT_TIMEOUT_SECONDS = 15.0
 
 
 # 推荐请求参数类
