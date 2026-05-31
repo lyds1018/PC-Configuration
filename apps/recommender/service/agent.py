@@ -9,7 +9,7 @@ from typing import Dict, Mapping, Sequence
 
 from openai import OpenAI
 
-from .service.utils import (
+from .utils import (
     AGENT_TIMEOUT_SECONDS,
     API_KEY_ENV_VAR,
     BASE_URL,

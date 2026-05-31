@@ -1,6 +1,5 @@
 """装机页兼容性服务
 
-职责：
 1. 从已选配件抽取兼容性相关字段；
 2. 计算存储/内存数量统计；
 3. 调用 compatibility 模块并返回统一检查结果
@@ -8,47 +7,16 @@
 
 from compatibility import run_checks
 
-from .utils import as_int, read_quantity
-
-COMPATIBILITY_FIELD_MAP = {
-    "cpu": ("socket", "memory_type", "memory_speed", "tdp"),
-    "mb": (
-        "socket",
-        "form",
-        "memory_type",
-        "memory_frequency",
-        "memory_slots",
-        "m2_slots",
-        "sata_ports",
-    ),
-    "ram": ("type", "frequency"),
-    "cooler": ("type", "air_height", "water_size"),
-    "gpu": ("length", "tdp"),
-    "case": (
-        "form",
-        "gpu_length",
-        "air_height",
-        "water_size",
-        "psu_form",
-        "storage_2_5",
-        "storage_3_5",
-    ),
-    "psu": ("form", "wattage"),
-}
-
-
-def default_compatibility():
-    """返回默认兼容性结果（未触发校验时使用）。"""
-    return {"ok": True, "issues": []}
+from .utils import COMPATIBILITY_FIELD_MAP, read_quantity, to_int
 
 
 def extract_part_payload(part, field_names):
-    """按字段白名单抽取配件属性，避免把无关数据传入检查器。"""
+    """按字段名单抽取配件属性，避免把无关数据传入检查器。"""
     return {field_name: getattr(part, field_name) for field_name in field_names}
 
 
 def derive_storage_totals(selected, selected_ids):
-    """根据存储类型与数量推导总占用（M.2 / SATA / HDD / SATA SSD）。"""
+    """根据存储类型与数量推导数量（M.2 / SATA / HDD / SATA SSD）。"""
     storage = selected.get("storage")
     totals = {
         "total_m2": 0,
@@ -75,10 +43,7 @@ def derive_storage_totals(selected, selected_ids):
 
 
 def build_compatibility_payload(selected, selected_ids):
-    """
-    将已选配件对象映射为兼容性模块可识别的结构化 payload。
-    兼容性模块与 Django Model 解耦，只依赖该标准结构。
-    """
+    """将已选配件对象转为兼容性检查模块输入格式。"""
 
     payload = {
         "cpu": {},
@@ -105,7 +70,7 @@ def build_compatibility_payload(selected, selected_ids):
         payload[key] = extract_part_payload(part, field_names)
 
     if selected.get("ram"):
-        payload["totals"]["total_memory"] = as_int(
+        payload["totals"]["total_memory"] = to_int(
             getattr(selected["ram"], "module_count", 1), default=1
         )
 
@@ -117,19 +82,25 @@ def build_compatibility_payload(selected, selected_ids):
     return payload
 
 
+def check_compatibility(selected, selected_ids, can_check):
+    """根据前置条件决定是否执行兼容性检查。"""
+    if not can_check:
+        return {"ok": True, "issues": []}
+
+    return run_checks(build_compatibility_payload(selected, selected_ids))
+
+
 def estimate_wattage(selected):
-    """估算核心平台功耗，供页面展示参考（CPU TDP + GPU TDP）。"""
+    """估算核心平台功耗，供页面展示。"""
     if not selected.get("cpu") or not selected.get("gpu"):
         return None
 
     cpu_tdp = float(selected["cpu"].tdp or 0)
     gpu_tdp = float(selected["gpu"].tdp or 0)
-    return cpu_tdp + gpu_tdp
+
+    tdp = to_int((cpu_tdp + gpu_tdp) * 1.3)
+
+    return tdp
 
 
-def check_compatibility(selected, selected_ids, can_check):
-    """根据前置条件决定是否执行兼容性检查。"""
-    if not can_check:
-        return default_compatibility()
 
-    return run_checks(build_compatibility_payload(selected, selected_ids))

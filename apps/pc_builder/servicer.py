@@ -1,9 +1,10 @@
 """装机模块服务层
 
-负责组装页面上下文、处理选件请求、并集中调用筛选与兼容性子服务
-视图层只保留请求分发，业务逻辑尽量落在这里
+负责处理页面上下文、配件列表构建及筛选、配件选择、兼容性检查
 """
+
 from django.shortcuts import get_object_or_404
+
 from .catalog import (
     BUILD_CATEGORIES,
     COMPATIBILITY_REQUIRED_KEYS,
@@ -13,7 +14,6 @@ from .service import (
     apply_brand_filters,
     apply_column_filters,
     apply_keyword_search,
-    as_int,
     build_sort_query_prefix,
     check_compatibility,
     estimate_wattage,
@@ -22,6 +22,7 @@ from .service import (
     read_quantity,
     resolve_selected_parts,
     save_session_selection,
+    to_int,
 )
 
 
@@ -32,7 +33,7 @@ def build_builder_context(request):
     selected_ids = get_session_selection(request)
     selected, total_price = resolve_selected_parts(selected_ids)
 
-    # 检查是否满足进行兼容性检查的条件
+    # 检查是否满足进行兼容性检查条件
     can_check = all(selected.get(key) for key in COMPATIBILITY_REQUIRED_KEYS)
     compatibility = check_compatibility(selected, selected_ids, can_check)
 
@@ -72,7 +73,7 @@ def select_part(request, part_type, pk):
 
     # 存储设备需要额外更新数量
     if part_type == "storage":
-        qty = as_int(request.POST.get("qty") or request.GET.get("qty"), default=1)
+        qty = to_int(request.POST.get("qty") or request.GET.get("qty"), default=1)
         selected["storage_qty"] = max(1, qty)
 
     # 保存更新后的 session
