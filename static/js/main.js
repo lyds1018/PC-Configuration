@@ -1,5 +1,3 @@
-// PC Configuration - Main JavaScript
-
 document.addEventListener('DOMContentLoaded', function() {
     console.log('PC Configuration System loaded');
 
@@ -11,8 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, durationMs);
     };
     
-    // Auto-hide flash messages after 5 seconds
-    // Compatibility result blocks should stay visible until user changes parts.
     const alerts = document.querySelectorAll('.js-auto-hide-alert');
     alerts.forEach(function(alert) {
         setTimeout(function() {
@@ -20,7 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     });
     
-    // Form validation enhancement
     const forms = document.querySelectorAll('form');
     forms.forEach(function(form) {
         form.addEventListener('submit', function(e) {
@@ -33,7 +28,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Price format helper
     const priceInputs = document.querySelectorAll('input[type="number"][data-type="price"]');
     priceInputs.forEach(function(input) {
         input.addEventListener('blur', function() {
@@ -45,7 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Utility functions
 function formatPrice(price) {
     return '¥' + parseFloat(price).toFixed(2);
 }
@@ -71,7 +64,6 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// AJAX helper
 async function ajaxRequest(url, options = {}) {
     try {
         const response = await fetch(url, {
@@ -230,7 +222,6 @@ function confirmDialog(title, message) {
     });
 }
 
-// Export functions for global use
 window.PCConfig = {
     formatPrice,
     showNotification,

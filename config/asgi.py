@@ -4,7 +4,6 @@ from pathlib import Path
 
 from django.core.asgi import get_asgi_application
 
-# Add the project directory to Python path
 BASE_DIR = Path(__file__).resolve().parent.parent
 APPS_DIR = BASE_DIR / "apps"
 if str(APPS_DIR) not in sys.path:

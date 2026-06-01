@@ -19,4 +19,4 @@ def register(request):
         form = UserCreationForm()
 
     # 渲染注册页面
-    return render(request, "registration/register.html", {"form": form})
+    return render(request, "accounts/register.html", {"form": form})
