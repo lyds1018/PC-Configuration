@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
 
-from .service.agent import run_agent_recommendation, get_agent_client
+from .service.agent.agent import run_agent_recommendation, get_agent_client
 from .service.recommend.recommendation import RecommendationRequest, recommend_builds
 from .service.utils import (
     CPU_BRAND_OPTIONS,

@@ -7,22 +7,21 @@ from django.shortcuts import get_object_or_404
 
 from .catalog import (
     BUILD_CATEGORIES,
-    COMPATIBILITY_REQUIRED_KEYS,
     PARTS_CONFIG,
 )
 from .service import (
+    to_int,
+    read_quantity,
+    resolve_selected_parts,
     apply_brand_filters,
     apply_column_filters,
     apply_keyword_search,
-    build_sort_query_prefix,
-    check_compatibility,
-    estimate_wattage,
-    get_session_selection,
     normalize_sort_request,
-    read_quantity,
-    resolve_selected_parts,
+    build_sort_query_prefix,
+    estimate_wattage,
+    check_compatibility,
+    get_session_selection,
     save_session_selection,
-    to_int,
 )
 
 
@@ -33,8 +32,8 @@ def build_builder_context(request):
     selected_ids = get_session_selection(request)
     selected, total_price = resolve_selected_parts(selected_ids)
 
-    # 检查是否满足进行兼容性检查条件
-    can_check = all(selected.get(key) for key in COMPATIBILITY_REQUIRED_KEYS)
+    # 进行兼容性检查
+    can_check = len(selected) >= 2
     compatibility = check_compatibility(selected, selected_ids, can_check)
 
     # 读取存储设备的数量，计算总价

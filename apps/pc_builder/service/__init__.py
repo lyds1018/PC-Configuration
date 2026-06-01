@@ -18,7 +18,7 @@ from .session_manager import get_session_selection, save_session_selection
 from .utils import read_quantity, to_int
 
 __all__ = [
-    # 会话管理
+    # 读取保存 session
     "get_session_selection",
     "save_session_selection",
     # 配件解析

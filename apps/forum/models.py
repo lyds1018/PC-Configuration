@@ -7,7 +7,7 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
-# 使用项目当前生效的用户模型，避免写死 auth.User。
+# 使用项目用户模型。
 User = get_user_model()
 
 

@@ -38,7 +38,7 @@ FORUM_TAB_FOLLOWING = "following"
 FORUM_TAB_DETAIL = "detail"
 FORUM_TAB_MODERATION = "moderation"
 
-# 个人主页视图模式。
+# 个人主页视图模式
 PROFILE_VIEW_OVERVIEW = "overview"
 PROFILE_VIEW_POSTS = "posts"
 PROFILE_VIEW_LIKES = "likes"
@@ -49,7 +49,7 @@ FORUM_SORT_VIEWS = "views"
 FORUM_SORT_LIKES = "likes"
 FORUM_SORT_FAVORITES = "favorites"
 
-# tab 与板块、排序参数与 ORM 排序字段的映射表。
+# tab 与板块、排序参数与 ORM 排序字段的映射表
 TAB_TO_SECTION = {
     FORUM_TAB_EXPERIENCE: ForumPost.SECTION_EXPERIENCE,
     FORUM_TAB_HELP: ForumPost.SECTION_HELP,
@@ -65,15 +65,15 @@ ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_EDITOR_IMAGE_SIZE = 5 * 1024 * 1024
 
 
-def _redirect_next(request, default_tab=FORUM_TAB_ALL):
-    """优先跳转回安全的 next 地址，失败时回退到论坛首页默认 tab。"""
+def redirect_next(request, default_tab=FORUM_TAB_ALL):
+    """优先跳转 next 地址，失败时回退到论坛首页。"""
     next_url = (request.POST.get("next") or "").strip()
     if next_url.startswith("/forum"):
         return redirect(next_url)
     return redirect(f"{reverse('forum:forum_page')}?tab={default_tab}")
 
 
-def _parse_tag_names(raw_tags):
+def parse_tag_names(raw_tags):
     """从输入文本中提取标签名，去重、裁剪并限制数量。"""
     chunks = re.findall(r"[#＃]([^\s#＃,，]+)", raw_tags or "")
     deduped = []
@@ -89,7 +89,7 @@ def _parse_tag_names(raw_tags):
     return deduped[:8]
 
 
-def _extract_post_form(request):
+def extract_post_form(request):
     """统一读取并清洗帖子表单字段。"""
     return {
         "title": (request.POST.get("title") or "").strip(),
@@ -99,7 +99,7 @@ def _extract_post_form(request):
     }
 
 
-def _validate_post_form(form):
+def validate_post_form(form):
     if not form["title"] or not form["content"]:
         return "标题和正文不能为空。"
     if form["section"] not in dict(ForumPost.SECTION_CHOICES):
@@ -112,7 +112,7 @@ def _validate_post_form(form):
     return ""
 
 
-def _list_post_queryset(tab, q, sort):
+def list_post_queryset(tab, q, sort):
     posts = ForumPost.objects.filter(status=ForumPost.STATUS_PUBLISHED).select_related("author").prefetch_related("tags")
     section = TAB_TO_SECTION.get(tab)
     if section:
@@ -127,7 +127,7 @@ def _list_post_queryset(tab, q, sort):
     return posts.order_by(*ordering)
 
 
-def _get_detail_context(request, post_id):
+def get_detail_context(request, post_id):
     post = get_object_or_404(
         ForumPost.objects.select_related("author", "reviewed_by").prefetch_related("tags"),
         id=post_id,
@@ -202,7 +202,7 @@ def forum_page(request):
     }
 
     if tab in {FORUM_TAB_ALL, FORUM_TAB_EXPERIENCE, FORUM_TAB_HELP, FORUM_TAB_NEWS}:
-        context["posts"] = _list_post_queryset(tab, q, sort)
+        context["posts"] = list_post_queryset(tab, q, sort)
 
     elif tab == FORUM_TAB_PROFILE:
         profile_view = (request.GET.get("view") or PROFILE_VIEW_OVERVIEW).strip()
@@ -277,7 +277,7 @@ def forum_page(request):
 
     if (tab == FORUM_TAB_DETAIL or detail_post_id) and detail_post_id:
         try:
-            context.update(_get_detail_context(request, int(detail_post_id)))
+            context.update(get_detail_context(request, int(detail_post_id)))
             context["active_tab"] = FORUM_TAB_DETAIL
         except (ValueError, PermissionError):
             messages.error(request, "帖子不存在或无权访问。")
@@ -291,11 +291,11 @@ def create_post(request):
     if request.method != "POST":
         return redirect("forum:forum_page")
 
-    form = _extract_post_form(request)
-    form_error = _validate_post_form(form)
+    form = extract_post_form(request)
+    form_error = validate_post_form(form)
     if form_error:
         messages.error(request, form_error)
-        return _redirect_next(request, default_tab=FORUM_TAB_CREATE)
+        return redirect_next(request, default_tab=FORUM_TAB_CREATE)
 
     post = ForumPost.objects.create(
         author=request.user,
@@ -305,7 +305,7 @@ def create_post(request):
         status=ForumPost.STATUS_PENDING,
     )
 
-    for tag_name in _parse_tag_names(form["raw_tags"]):
+    for tag_name in parse_tag_names(form["raw_tags"]):
         tag, _ = ForumTag.objects.get_or_create(name=tag_name)
         post.tags.add(tag)
 
@@ -322,8 +322,8 @@ def edit_post(request, post_id):
     if not (request.user.is_staff or post.author_id == request.user.id):
         return HttpResponseForbidden("无权限")
 
-    form = _extract_post_form(request)
-    form_error = _validate_post_form(form)
+    form = extract_post_form(request)
+    form_error = validate_post_form(form)
     if form_error:
         messages.error(request, form_error)
         return redirect(f"{reverse('forum:forum_page')}?tab=create&edit={post_id}")
@@ -351,7 +351,7 @@ def edit_post(request, post_id):
     )
 
     post.tags.clear()
-    for tag_name in _parse_tag_names(form["raw_tags"]):
+    for tag_name in parse_tag_names(form["raw_tags"]):
         tag, _ = ForumTag.objects.get_or_create(name=tag_name)
         post.tags.add(tag)
 
@@ -382,7 +382,7 @@ def add_comment(request, post_id):
     content = (request.POST.get("content") or "").strip()
     if not content:
         messages.error(request, "评论不能为空。")
-        return _redirect_next(request, default_tab=FORUM_TAB_DETAIL)
+        return redirect_next(request, default_tab=FORUM_TAB_DETAIL)
 
     parent_id = request.POST.get("parent_id")
     parent = None
@@ -395,7 +395,7 @@ def add_comment(request, post_id):
     ForumPost.objects.filter(id=post.id).update(comment_count=F("comment_count") + 1)
 
     messages.success(request, "评论成功。")
-    return _redirect_next(request, default_tab=FORUM_TAB_DETAIL)
+    return redirect_next(request, default_tab=FORUM_TAB_DETAIL)
 
 
 @login_required
@@ -414,7 +414,7 @@ def delete_post_comment(request, comment_id):
     ForumPost.objects.filter(id=post.id).update(comment_count=remaining_count)
 
     messages.success(request, "评论已删除。")
-    return _redirect_next(request, default_tab=FORUM_TAB_PROFILE)
+    return redirect_next(request, default_tab=FORUM_TAB_PROFILE)
 
 
 @login_required
@@ -432,7 +432,7 @@ def toggle_like(request, post_id):
         ForumPost.objects.filter(id=post.id, like_count__gt=0).update(like_count=F("like_count") - 1)
         messages.info(request, "已取消点赞。")
 
-    return _redirect_next(request, default_tab=FORUM_TAB_DETAIL)
+    return redirect_next(request, default_tab=FORUM_TAB_DETAIL)
 
 
 @login_required
@@ -450,7 +450,7 @@ def toggle_favorite(request, post_id):
         ForumPost.objects.filter(id=post.id, favorite_count__gt=0).update(favorite_count=F("favorite_count") - 1)
         messages.info(request, "已取消收藏。")
 
-    return _redirect_next(request, default_tab=FORUM_TAB_DETAIL)
+    return redirect_next(request, default_tab=FORUM_TAB_DETAIL)
 
 
 @login_required
@@ -460,7 +460,7 @@ def toggle_follow(request, user_id):
 
     if user_id == request.user.id:
         messages.warning(request, "不能关注自己。")
-        return _redirect_next(request)
+        return redirect_next(request)
 
     follow, created = ForumUserFollow.objects.get_or_create(follower=request.user, followee_id=user_id)
     if created:
@@ -469,7 +469,7 @@ def toggle_follow(request, user_id):
         follow.delete()
         messages.info(request, "已取消关注。")
 
-    return _redirect_next(request)
+    return redirect_next(request)
 
 
 @login_required

@@ -5,9 +5,6 @@ from .models import Case, Cpu, CpuCooler, Gpu, Mb, Psu, Ram, Storage
 # 已选配件列表的键名
 SELECTION_SESSION_KEY = "pc_builder_selection"
 
-# 兼容性检查需求配件清单
-COMPATIBILITY_REQUIRED_KEYS = ("cpu", "mb", "ram", "case", "psu", "gpu", "storage")
-
 # 配件目录
 BUILD_CATEGORIES = [
     {"key": "cpu", "label": "CPU"},
