@@ -1,7 +1,4 @@
-"""论坛模块路由表
-
-按“页面入口 + actions 写操作接口”组织，便于前后端按语义定位
-"""
+"""论坛模块路由"""
 
 from django.urls import path
 

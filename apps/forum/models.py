@@ -7,12 +7,12 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
-# 使用项目用户模型。
 User = get_user_model()
 
 
 class ForumTag(models.Model):
-    """帖子标签。用于话题聚合与检索。"""
+    """帖子标签，用于话题聚合与检索。"""
+
     name = models.CharField(max_length=30, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -26,6 +26,7 @@ class ForumTag(models.Model):
 
 class ForumPost(models.Model):
     """论坛帖子主体，包含发布状态与统计计数字段。"""
+
     SECTION_EXPERIENCE = "experience"
     SECTION_HELP = "help"
     SECTION_NEWS = "news"
@@ -44,7 +45,9 @@ class ForumPost(models.Model):
         (STATUS_REJECTED, "已驳回"),
     )
 
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_posts")
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="forum_posts"
+    )
     title = models.CharField(max_length=200)
     section = models.CharField(max_length=20, choices=SECTION_CHOICES)
     content = models.TextField()
@@ -55,7 +58,9 @@ class ForumPost(models.Model):
     comment_count = models.PositiveIntegerField(default=0)
     favorite_count = models.PositiveIntegerField(default=0)
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
     reviewed_by = models.ForeignKey(
         User,
         null=True,
@@ -84,9 +89,14 @@ class ForumPost(models.Model):
 
 
 class ForumComment(models.Model):
-    """帖子评论，支持 parent 字段形成一层回复关系。"""
-    post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name="comments")
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_comments")
+    """帖子评论，支持楼中楼。"""
+
+    post = models.ForeignKey(
+        ForumPost, on_delete=models.CASCADE, related_name="comments"
+    )
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="forum_comments"
+    )
     content = models.TextField()
     parent = models.ForeignKey(
         "self",
@@ -107,39 +117,61 @@ class ForumComment(models.Model):
 
 class ForumPostLike(models.Model):
     """帖子点赞关系表（用户-帖子 唯一）。"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_post_likes")
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="forum_post_likes"
+    )
     post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name="likes")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "forum_post_like"
         constraints = [
-            models.UniqueConstraint(fields=["user", "post"], name="uniq_forum_like_user_post"),
+            models.UniqueConstraint(
+                fields=["user", "post"], name="uniq_forum_like_user_post"
+            ),
         ]
 
 
 class ForumPostFavorite(models.Model):
     """帖子收藏关系表（用户-帖子 唯一）。"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_post_favorites")
-    post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name="favorites")
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="forum_post_favorites"
+    )
+    post = models.ForeignKey(
+        ForumPost, on_delete=models.CASCADE, related_name="favorites"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "forum_post_favorite"
         constraints = [
-            models.UniqueConstraint(fields=["user", "post"], name="uniq_forum_favorite_user_post"),
+            models.UniqueConstraint(
+                fields=["user", "post"], name="uniq_forum_favorite_user_post"
+            ),
         ]
 
 
 class ForumUserFollow(models.Model):
-    """用户关注关系表，限制不可自关注。"""
-    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_following")
-    followee = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_followers")
+    """用户关注关系表，不能关注自己。"""
+
+    follower = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="forum_following"
+    )
+    followee = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="forum_followers"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "forum_user_follow"
         constraints = [
-            models.UniqueConstraint(fields=["follower", "followee"], name="uniq_forum_follow_pair"),
-            models.CheckConstraint(check=~models.Q(follower=models.F("followee")), name="chk_forum_no_self_follow"),
+            models.UniqueConstraint(
+                fields=["follower", "followee"], name="uniq_forum_follow_pair"
+            ),
+            models.CheckConstraint(
+                check=~models.Q(follower=models.F("followee")),
+                name="chk_forum_no_self_follow",
+            ),
         ]

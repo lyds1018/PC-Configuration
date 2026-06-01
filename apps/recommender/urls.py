@@ -1,4 +1,4 @@
-"""推荐模块路由定义"""
+"""推荐模块路由"""
 
 from django.urls import path
 
