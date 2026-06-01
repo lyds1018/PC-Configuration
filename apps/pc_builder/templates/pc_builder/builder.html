@@ -75,7 +75,7 @@
   </div>
   {% if selected %}
     <div class="mt-075 text-right">
-      <form method="post" action="{% url 'build_history:save_diy_build' %}" class="inline-form" id="save-diy-build-form">
+      <form method="post" action="{% url 'build_history:save_diy_build' %}" class="inline-form" id="save-diy-build-form" data-manual-submit="true">
         {% csrf_token %}
         <input type="hidden" name="title" id="save-diy-build-title" value="">
         <button type="submit" class="btn btn-primary">保存当前方案</button>
@@ -119,5 +119,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/pages/pc_builder/builder.js' %}?v=20260330-pages-1"></script>
+<script src="{% static 'js/pages/build_history/builder.js' %}?v=20260601-save-dialog-1"></script>
 {% endblock %}
