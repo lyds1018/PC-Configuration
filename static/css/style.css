@@ -1,6 +1,3 @@
-/* PC Configuration - Modern Stylesheet */
-
-/* CSS Variables for theming */
 :root {
     --primary-color: #3b82f6;
     --primary-dark: #2563eb;
@@ -939,7 +936,7 @@ a:hover {
     width: 0;
     height: 100%;
     background: linear-gradient(90deg, #2f80ed, #26a69a);
-    transition: width 0.25s ease;
+    transition: width 0.7s ease-out;
 }
 
 .agent-result-stage {
