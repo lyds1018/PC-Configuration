@@ -1,11 +1,10 @@
-# 导入 Django 内置的用户注册表单（含用户名、密码、密码确认）
-from django.contrib.auth.forms import UserCreationForm
+"""账户模块视图层"""
 
-# 导入 Django 内置函数：`render` 渲染模板，`redirect` 重定向
+# 导入 Django 内置的用户注册表单
+from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import redirect, render
 
 
-# 用户注册视图
 def register(request):
     """处理用户注册请求"""
     # 若为 POST 请求，处理提交的表单数据

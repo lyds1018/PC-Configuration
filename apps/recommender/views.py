@@ -1,6 +1,6 @@
 """推荐模块视图层
 
-负责表单参数接收、偏好归一化、推荐结果渲染与 JSON 数据接口输出
+负责表单参数接收处理、调用推荐算法、推荐结果渲染
 """
 import threading
 from django.contrib.auth.decorators import login_required
