@@ -7,8 +7,8 @@ from typing import Dict, List, Mapping
 from compatibility import run_checks
 
 # 组合枚举常量
-MAX_CANDIDATES = 1024
-OUTPUT_CANDIDATES = 8
+MAX_CANDIDATES = 8000
+OUTPUT_CANDIDATES = 12
 
 # 应用场景常量
 WORKLOAD_GAME = "game"

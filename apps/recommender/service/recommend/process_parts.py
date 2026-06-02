@@ -53,14 +53,14 @@ def preference_parts(params: RecommendationRequest) -> Dict[str, List[object]]:
     gpu_qs = gpu_chip_brand_filter(Gpu.objects.all(), params.gpu_chip_brand)
 
     return {
-        "cpus": evenly_sample(cpu_qs, 16),
-        "mbs": evenly_sample(Mb.objects.all(), 18),
-        "rams": evenly_sample(Ram.objects.all(), 18),
-        "storages": evenly_sample(Storage.objects.all(), 18),
-        "gpus": evenly_sample(gpu_qs, 24),
-        "cases": evenly_sample(Case.objects.all(), 16),
-        "psus": evenly_sample(Psu.objects.all(), 16),
-        "coolers": evenly_sample(CpuCooler.objects.all(), 14),
+        "cpus": evenly_sample(cpu_qs, 40),
+        "mbs": evenly_sample(Mb.objects.all(), 24),
+        "rams": evenly_sample(Ram.objects.all(), 24),
+        "storages": evenly_sample(Storage.objects.all(), 24),
+        "gpus": evenly_sample(gpu_qs, 28),
+        "cases": evenly_sample(Case.objects.all(), 28),
+        "psus": evenly_sample(Psu.objects.all(), 28),
+        "coolers": evenly_sample(CpuCooler.objects.all(), 28),
     }
 
 

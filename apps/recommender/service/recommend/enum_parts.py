@@ -257,7 +257,9 @@ def collect_feasible_candidates(
     feasible: List[Dict[str, object]] = []
 
     cpu_gpu_counts: Dict[tuple[object, object], int] = {}
-    max_cpu_gpu = 8
+    cpu_cooler_counts: Dict[tuple[object, object], int] = {}
+    max_cpu_gpu = 4
+    max_cpu_cooler = 4
 
     price_bounds = build_price_bounds(parts)
 
@@ -276,12 +278,12 @@ def collect_feasible_candidates(
             budget_max,
             price_bounds,
         ):
-            pair_key = (
+            pair_key_cpu_gpu = (
                 getattr(cpu, "id", getattr(cpu, "name", None)),
                 getattr(gpu, "id", getattr(gpu, "name", None)),
             )
 
-            if cpu_gpu_counts.get(pair_key, 0) >= max_cpu_gpu:
+            if cpu_gpu_counts.get(pair_key_cpu_gpu, 0) >= max_cpu_gpu:
                 continue
 
             for storage, cooler, total_price in iter_storage_cooler_candidates(
@@ -311,11 +313,21 @@ def collect_feasible_candidates(
                     )
                 )
 
-                # 更新 CPU + GPU 组合计数器
-                cpu_gpu_counts[pair_key] = cpu_gpu_counts.get(pair_key, 0) + 1
+                pair_key_cpu_cooler = (
+                    getattr(cpu, "id", getattr(cpu, "name", None)),
+                    getattr(cooler, "id", getattr(cooler, "name", None)),
+                )
 
-                if cpu_gpu_counts[pair_key] >= max_cpu_gpu:
-                    break
+                # 更新组合计数器
+                cpu_gpu_counts[pair_key_cpu_gpu] = (
+                    cpu_gpu_counts.get(pair_key_cpu_gpu, 0) + 1
+                )
+                cpu_cooler_counts[pair_key_cpu_cooler] = (
+                    cpu_cooler_counts.get(pair_key_cpu_cooler, 0) + 1
+                )
+
+                if cpu_cooler_counts[pair_key_cpu_cooler] >= max_cpu_cooler: 
+                    continue
 
                 if len(feasible) >= MAX_CANDIDATES:
                     return feasible

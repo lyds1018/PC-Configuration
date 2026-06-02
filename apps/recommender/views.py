@@ -91,7 +91,6 @@ def build_recommendation_result(form_data):
             workload=form_data["workload"],
             cpu_brand=form_data["cpu_brand"],
             gpu_chip_brand=form_data["gpu_chip_brand"],
-            free_text=form_data["free_text"],
         )
     )
 
